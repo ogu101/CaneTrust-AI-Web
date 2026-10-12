@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CaneTrust AI</title>
+<style>
+  :root {
+    --um-green: #005030;
+    --um-green-dark: #003d25;
+    --um-orange: #f47321;
+    --um-orange-dark: #d85f12;
+    --ink: #1a1a1a;
+    --muted: #5f6b66;
+    --line: #dfe5e2;
+    --bg: #f4f7f5;
+    --err: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    min-height: 100vh;
+  }
+  header {
+    background: linear-gradient(135deg, var(--um-green) 0%, var(--um-green-dark) 100%);
+    color: #fff;
+    padding: 48px 16px 72px;
+    text-align: center;
+    border-bottom: 5px solid var(--um-orange);
+  }
+  header h1 { margin: 0; font-size: 2rem; letter-spacing: .5px; }
+  header h1 span { color: var(--um-orange); }
+  header p { margin: 10px auto 0; max-width: 460px; color: #cfe3d8; line-height: 1.5; }
+
+  main { max-width: 520px; margin: -40px auto 48px; padding: 0 16px; }
+  .card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 28px;
+    box-shadow: 0 10px 30px rgba(0, 48, 30, .12);
+    border: 1px solid var(--line);
+  }
+  label, .section-title { display: block; margin: 18px 0 6px; font-weight: 600; font-size: .85rem; color: var(--um-green); }
+  label:first-of-type { margin-top: 0; }
+  .opt { font-weight: 400; color: var(--muted); }
+  .hint { margin: 0 0 4px; font-size: .85rem; line-height: 1.45; color: var(--muted); }
+
+  input[type="text"], input[type="password"], input[type="number"] {
+    width: 100%; padding: 10px 12px; font-size: 1rem;
+    border: 1px solid var(--line); border-radius: 8px; background: #fbfdfc;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus, button:focus-visible {
+    outline: none; border-color: var(--um-orange);
+    box-shadow: 0 0 0 3px rgba(244, 115, 33, .2);
+  }
+  input[type="file"] {
+    width: 100%; padding: 18px 12px; font-size: .95rem;
+    border: 2px dashed var(--um-green); border-radius: 10px;
+    background: #f1f8f4; color: var(--muted); cursor: pointer;
+  }
+  input[type="file"]::file-selector-button {
+    margin-right: 12px; padding: 8px 14px; border: 0; border-radius: 6px;
+    background: var(--um-green); color: #fff; font-weight: 600; cursor: pointer;
+  }
+  input[type="file"]::file-selector-button:hover { background: var(--um-green-dark); }
+
+  .section { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .section .section-title { margin-top: 0; }
+  .amd-row { margin: 12px 0 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fbfdfc; }
+  .amd-row input[type="file"] { padding: 12px; background: #f1f8f4; }
+  .amd-grid { display: grid; grid-template-columns: 84px 1fr; gap: 0 12px; }
+  .amd-row label { margin: 12px 0 6px; }
+  .amd-row label:first-of-type { margin-top: 0; }
+
+  button { font: inherit; cursor: pointer; }
+  button.secondary {
+    margin-top: 14px; padding: 9px 14px; border-radius: 8px; font-weight: 600; font-size: .92rem;
+    border: 2px solid var(--um-green); background: #fff; color: var(--um-green);
+    transition: background .15s;
+  }
+  button.secondary:hover:not(:disabled) { background: #f1f8f4; }
+  button.secondary:disabled { opacity: .5; cursor: not-allowed; }
+  button.remove { margin-top: 10px; padding: 0; border: 0; background: none; color: var(--muted); font-size: .85rem; text-decoration: underline; }
+  button.remove:hover { color: var(--err); }
+
+  button[type="submit"] {
+    width: 100%; margin-top: 24px; padding: 13px 18px;
+    background: var(--um-orange); color: #fff; font-size: 1rem; font-weight: 700;
+    border: 0; border-radius: 8px;
+    transition: background .15s, transform .05s;
+  }
+  button[type="submit"]:hover { background: var(--um-orange-dark); }
+  button[type="submit"]:active { transform: translateY(1px); }
+  button[type="submit"]:disabled { opacity: .55; cursor: wait; }
+
+  #size { margin: 20px 0 0; font-size: .85rem; color: var(--muted); text-align: center; }
+  #size.over { color: var(--err); font-weight: 600; }
+
+  #progress { margin-top: 16px; font-size: .9rem; color: var(--muted); }
+  #steps { margin: 0; padding-left: 20px; line-height: 1.6; }
+  #live { margin-top: 6px; text-align: center; color: var(--um-green); font-weight: 600; }
+  #error { margin-top: 16px; font-size: .92rem; text-align: center; color: var(--err); }
+  #error:focus { outline: none; }
+  #result { margin-top: 16px; font-size: .92rem; text-align: center; color: var(--um-green); font-weight: 600; }
+  #result a { color: var(--um-green); }
+  #warnings { margin: 10px 0 0; padding-left: 20px; text-align: left; font-weight: 400; color: var(--um-orange-dark); }
+  [hidden] { display: none !important; }
+
+  footer { text-align: center; color: var(--muted); font-size: .8rem; padding-bottom: 32px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Cane<span>Trust</span> AI</h1>
+    <p>Upload a trust and any amendments. You'll get a filled annotation spreadsheet to review.</p>
+  </header>
+
+  <main>
+    <div class="card">
+      <form id="form" novalidate>
+        <label for="trust">Trust document (text-based PDF or .txt)</label>
+        <input id="trust" type="file" accept=".pdf,.txt,application/pdf,text/plain">
+
+        <label for="trust-label">Document label <span class="opt">optional</span></label>
+        <input id="trust-label" type="text" placeholder="e.g. Marlowe Family Living Trust (1998)">
+
+        <div class="section">
+          <div class="section-title">Amendments <span class="opt">optional</span></div>
+          <p class="hint">Leave this empty if the trust has no amendments. Otherwise add each amendment with its number (1 for the First Amendment). The order you add them in does not matter.</p>
+          <div id="amendments"></div>
+          <button type="button" id="add" class="secondary">+ Add an amendment</button>
+        </div>
+
+        <div class="section">
+          <label for="doc-name">Workbook name <span class="opt">optional</span></label>
+          <input id="doc-name" type="text" placeholder="Defaults to the trust file's name">
+
+          <label for="legal-status">Legal status <span class="opt">single document only</span></label>
+          <input id="legal-status" type="text" value="OPERATIVE">
+
+          <label for="code">Access code</label>
+          <input id="code" type="password" autocomplete="off">
+        </div>
+
+        <p id="size"></p>
+        <button type="submit" id="go">Generate annotation</button>
+      </form>
+
+      <div id="progress" aria-live="polite" hidden>
+        <ol id="steps"></ol>
+        <div id="live"></div>
+      </div>
+      <div id="error" role="alert" tabindex="-1" hidden></div>
+      <div id="result" hidden>
+        <a id="download" href="#">Download the workbook</a>
+        <ul id="warnings"></ul>
+      </div>
+    </div>
+  </main>
+
+  <footer>Miami AI &amp; Law Lab</footer>
+
+<script>
+(function () {
+  var MAX_AMENDMENTS = 8;
+  var limitMB = 4.0;
+  var objectUrl = null;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var form = $('form'), amendmentsEl = $('amendments'), addBtn = $('add'), goBtn = $('go');
+  var progressEl = $('progress'), stepsEl = $('steps'), liveEl = $('live');
+  var errorEl = $('error'), resultEl = $('result'), downloadEl = $('download'), warningsEl = $('warnings');
+  var sizeEl = $('size'), codeEl = $('code');
+
+  try { codeEl.value = sessionStorage.getItem('canetrust-code') || ''; } catch (e) {}
+
+  fetch('/api/health').then(function (r) { return r.ok ? r.json() : null; }).then(function (h) {
+    if (h && h.max_upload_mb) { limitMB = h.max_upload_mb; updateSize(); }
+  }).catch(function () {});
+
+  function selectedFiles() {
+    var files = [];
+    var t = $('trust').files && $('trust').files[0];
+    if (t) files.push(t);
+    amendmentsEl.querySelectorAll('.amd-file').forEach(function (input) {
+      if (input.files && input.files[0]) files.push(input.files[0]);
+    });
+    return files;
+  }
+
+  function mb(bytes) { return (bytes / 1048576).toFixed(1); }
+
+  function updateSize() {
+    var total = selectedFiles().reduce(function (sum, f) { return sum + f.size; }, 0);
+    var over = total > limitMB * 1048576;
+    sizeEl.textContent = 'Total size: ' + mb(total) + ' MB of ' + limitMB.toFixed(1) + ' MB allowed';
+    sizeEl.className = over ? 'over' : '';
+    return over;
+  }
+
+  function nextNumber() {
+    var used = {};
+    amendmentsEl.querySelectorAll('.amd-number').forEach(function (i) { used[parseInt(i.value, 10)] = true; });
+    var n = 1;
+    while (used[n]) n++;
+    return n;
+  }
+
+  function field(labelText, input) {
+    var label = document.createElement('label');
+    label.textContent = labelText;
+    input.id = input.id || 'f' + Math.random().toString(36).slice(2);
+    label.htmlFor = input.id;
+    return [label, input];
+  }
+
+  function addRow() {
+    if (amendmentsEl.children.length >= MAX_AMENDMENTS) return;
+    var row = document.createElement('div');
+    row.className = 'amd-row';
+
+    var file = document.createElement('input');
+    file.type = 'file'; file.className = 'amd-file'; file.accept = '.pdf,.txt,application/pdf,text/plain';
+    file.addEventListener('change', updateSize);
+
+    var number = document.createElement('input');
+    number.type = 'number'; number.className = 'amd-number'; number.min = '1'; number.max = '99'; number.step = '1';
+    number.value = String(nextNumber());
+
+    var label = document.createElement('input');
+    label.type = 'text'; label.className = 'amd-label'; label.placeholder = 'e.g. First Amendment (2004)';
+
+    var remove = document.createElement('button');
+    remove.type = 'button'; remove.className = 'remove'; remove.textContent = 'Remove this amendment';
+    remove.addEventListener('click', function () { row.remove(); addBtn.disabled = false; updateSize(); });
+
+    var fileField = field('Amendment file (text-based PDF or .txt)', file);
+    row.appendChild(fileField[0]); row.appendChild(fileField[1]);
+
+    var grid = document.createElement('div');
+    grid.className = 'amd-grid';
+    var numField = field('Number', number), labelField = field('Label (optional)', label);
+    var numWrap = document.createElement('div'), labelWrap = document.createElement('div');
+    numField.forEach(function (n) { numWrap.appendChild(n); });
+    labelField.forEach(function (n) { labelWrap.appendChild(n); });
+    grid.appendChild(numWrap); grid.appendChild(labelWrap);
+    row.appendChild(grid);
+    row.appendChild(remove);
+
+    amendmentsEl.appendChild(row);
+    addBtn.disabled = amendmentsEl.children.length >= MAX_AMENDMENTS;
+  }
+
+  addBtn.addEventListener('click', addRow);
+  $('trust').addEventListener('change', updateSize);
+
+  function showError(message) {
+    errorEl.textContent = message;
+    errorEl.hidden = false;
+    errorEl.focus();
+  }
+
+  function reset() {
+    errorEl.hidden = true; errorEl.textContent = '';
+    resultEl.hidden = true; warningsEl.textContent = '';
+    stepsEl.textContent = ''; liveEl.textContent = '';
+    progressEl.hidden = true;
+    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+  }
+
+  function validate() {
+    var trust = $('trust').files && $('trust').files[0];
+    if (!trust) return 'Choose the trust document.';
+
+    var seen = {}, rows = amendmentsEl.querySelectorAll('.amd-row');
+    for (var i = 0; i < rows.length; i++) {
+      var file = rows[i].querySelector('.amd-file').files[0];
+      var raw = rows[i].querySelector('.amd-number').value.trim();
+      var n = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+      if (!file) return 'Amendment ' + (i + 1) + ' has no file. Choose one, or remove the row.';
+      if (!(n >= 1)) return 'Give amendment ' + (i + 1) + ' a number of 1 or higher.';
+      if (seen[n]) return 'Two amendments are numbered ' + n + '. Each number can be used once.';
+      seen[n] = true;
+    }
+    var bad = selectedFiles().filter(function (f) { return !/\.(pdf|txt)$/i.test(f.name); });
+    if (bad.length) return bad[0].name + ' is not a PDF or .txt file.';
+    if (updateSize()) return 'The files are over the ' + limitMB.toFixed(1) + ' MB limit for one upload. Send fewer or smaller files.';
+    return null;
+  }
+
+  function addStep(message) {
+    var li = document.createElement('li');
+    li.textContent = message;
+    stepsEl.appendChild(li);
+  }
+
+  function base64ToBytes(b64) {
+    var binary = atob(b64), bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function finish(event) {
+    var blob = new Blob([base64ToBytes(event.xlsx_base64)],
+      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    objectUrl = URL.createObjectURL(blob);
+    downloadEl.href = objectUrl;
+    downloadEl.setAttribute('download', event.filename);
+    downloadEl.textContent = 'Done. Download ' + event.filename;
+    (event.warnings || []).forEach(function (w) {
+      var li = document.createElement('li'); li.textContent = w; warningsEl.appendChild(li);
+    });
+    liveEl.textContent = '';
+    resultEl.hidden = false;
+    downloadEl.click();
+  }
+
+  function handleEvent(event, state) {
+    if (event.type === 'progress') { addStep(event.message); liveEl.textContent = ''; }
+    else if (event.type === 'heartbeat') { liveEl.textContent = 'Still working (' + event.elapsed + ' seconds)...'; }
+    else if (event.type === 'done') { state.finished = true; finish(event); }
+    else if (event.type === 'error') { state.finished = true; liveEl.textContent = ''; showError(event.message); }
+  }
+
+  async function readStream(response) {
+    var state = { finished: false };
+    var reader = response.body.getReader(), decoder = new TextDecoder(), buffer = '';
+    for (;;) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      var newline;
+      while ((newline = buffer.indexOf('\n')) !== -1) {
+        var line = buffer.slice(0, newline).trim();
+        buffer = buffer.slice(newline + 1);
+        if (line) handleEvent(JSON.parse(line), state);
+      }
+    }
+    if (buffer.trim()) handleEvent(JSON.parse(buffer.trim()), state);
+    if (!state.finished) {
+      liveEl.textContent = '';
+      showError('The connection closed before the workbook was ready. This usually means the server ' +
+        'reached its time limit. Try fewer or shorter documents.');
+    }
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    reset();
+    var problem = validate();
+    if (problem) { showError(problem); return; }
+
+    var data = new FormData();
+    var trust = $('trust').files[0];
+    data.append('trust', trust, trust.name);
+    data.append('doc_name', $('doc-name').value);
+    data.append('trust_label', $('trust-label').value);
+    data.append('status', $('legal-status').value);
+    data.append('access_code', codeEl.value);
+    try { sessionStorage.setItem('canetrust-code', codeEl.value); } catch (err) {}
+
+    var meta = [];
+    amendmentsEl.querySelectorAll('.amd-row').forEach(function (row) {
+      var file = row.querySelector('.amd-file').files[0];
+      data.append('amendment_files', file, file.name);
+      meta.push({ number: parseInt(row.querySelector('.amd-number').value, 10),
+                  label: row.querySelector('.amd-label').value });
+    });
+    data.append('amendments_meta', JSON.stringify(meta));
+
+    goBtn.disabled = true; goBtn.setAttribute('aria-busy', 'true');
+    progressEl.hidden = false; addStep('Uploading ' + (1 + meta.length) + ' file(s).');
+    try {
+      // Asking for NDJSON is what selects the streaming (progress) mode of the API.
+      var response = await fetch('/api/annotate', {
+        method: 'POST', body: data, headers: { 'Accept': 'application/x-ndjson' },
+      });
+      if (!response.ok) {
+        var message = 'The server returned an error (' + response.status + ').';
+        try { message = (await response.json()).error || message; } catch (err) {}
+        if (response.status === 413 && message.indexOf('The server returned') === 0) {
+          message = 'The files are too large for one upload. Send fewer or smaller files.';
+        }
+        progressEl.hidden = true;
+        showError(message);
+      } else {
+        await readStream(response);
+      }
+    } catch (err) {
+      progressEl.hidden = true;
+      showError('Could not reach the server. Check your connection and try again.');
+    } finally {
+      goBtn.disabled = false; goBtn.removeAttribute('aria-busy');
+    }
+  });
+
+  updateSize();
+})();
+</script>
+</body>
+</html>
