@@ -17,6 +17,7 @@ import tempfile
 import time
 from pathlib import Path
 
+os.environ["CANETRUST_DISABLE_DOTENV"] = "1"
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-not-used")
 for name in ("VERCEL", "CANETRUST_ACCESS_CODE", "CANETRUST_MAX_UPLOAD_MB", "CANETRUST_DEADLINE_SECONDS"):
     os.environ.pop(name, None)

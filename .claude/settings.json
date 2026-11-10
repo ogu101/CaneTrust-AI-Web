@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python test_multi.py)",
+      "Bash(.venv/bin/python test_web.py)",
+      "Bash(.venv/bin/python test_gay_fixtures.py)",
+      "Bash(.venv/bin/python test_pages.py)",
+      "Bash(.venv/bin/python test_triage.py)",
+      "Bash(node ui_test/test_ui.mjs)",
+      "Bash(cd ui_test && node test_ui.mjs)",
+      "Bash(git status)",
+      "Bash(git diff *)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(curl *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./private/**)"
+    ]
+  }
+}

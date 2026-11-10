@@ -21,6 +21,7 @@ Environment variables
     CANETRUST_MAX_CHARS           default 800000 characters of text per packet
     CANETRUST_DEADLINE_SECONDS    default 280 (stay under the function's maxDuration)
     CANETRUST_DEBUG_DIR           if set, the model's raw JSON is written there
+    CANETRUST_DISABLE_DOTENV      1 = never read .env (the tests set this so a local key is not used)
 """
 
 import os
@@ -55,8 +56,11 @@ class Settings:
 def load_local_env() -> None:
     """Read a local .env file, but never on Vercel, where the dashboard's environment
     variables are the source of truth (a stray .env must not override them).
-    override=True: a stale variable exported in the shell must not shadow .env."""
+    override=True: a stale variable exported in the shell must not shadow .env.
+    CANETRUST_DISABLE_DOTENV=1 turns it off, so tests don't depend on a developer's .env."""
     if os.getenv("VERCEL"):
+        return
+    if (os.getenv("CANETRUST_DISABLE_DOTENV") or "").strip().lower() in ("1", "true", "yes"):
         return
     try:
         from dotenv import load_dotenv

@@ -15,6 +15,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+os.environ["CANETRUST_DISABLE_DOTENV"] = "1"
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key-not-used")
 
 from openpyxl import load_workbook

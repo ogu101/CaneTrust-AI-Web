@@ -2,11 +2,13 @@
 //
 //     cd ui_test && npm install && node test_ui.mjs
 //
+// The stub server runs under $PYTHON if set, else the repo's .venv/bin/python, else python3.
+//
 // jsdom is not a browser: there is no layout and no real download. It runs the page's
 // JavaScript for real, against the real API, which is what this checks.
 
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { JSDOM, VirtualConsole } from "jsdom";
@@ -14,6 +16,8 @@ import { JSDOM, VirtualConsole } from "jsdom";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
 const FIX = join(ROOT, "fixtures");
+const VENV_PYTHON = join(ROOT, ".venv", "bin", "python");
+const PYTHON = process.env.PYTHON || (existsSync(VENV_PYTHON) ? VENV_PYTHON : "python3");
 const TRUST = "00_marlowe_trust_original.pdf";
 const AMENDMENTS = [
   ["01_marlowe_first_amendment.pdf", 1, "First Amendment (2004)"],
@@ -31,9 +35,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const pdf = (name) => new File([readFileSync(join(FIX, name))], name, { type: "application/pdf" });
 
 async function startServer(port, env = {}) {
-  const proc = spawn("python3", ["dev_stub_server.py"], {
+  const proc = spawn(PYTHON, ["dev_stub_server.py", "--no-browser"], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(port), STUB_PAUSE_SECONDS: "0.2", ...env },
+    env: { ...process.env, PORT: String(port), STUB_PAUSE_SECONDS: "0.2", CANETRUST_DISABLE_DOTENV: "1", ...env },
     stdio: ["ignore", "ignore", "pipe"],
   });
   let stderr = "";

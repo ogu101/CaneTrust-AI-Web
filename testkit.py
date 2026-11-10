@@ -1,7 +1,30 @@
 """
 Canned model outputs for the API-free tests: a fictional packet annotation and a minimal
 single-document annotation. Pure builders; nothing here touches disk or the network.
+
+Importing this module also makes the tests safe to run: .env is never read, and any model
+call that a test forgot to stub raises RealModelCallInTests instead of spending money.
 """
+
+import os
+
+os.environ["CANETRUST_DISABLE_DOTENV"] = "1"
+
+import anthropic
+
+
+class RealModelCallInTests(AssertionError):
+    pass
+
+
+class _BlockedAnthropic:
+    def __init__(self, *args, **kwargs):
+        raise RealModelCallInTests(
+            "A real Anthropic client was created during tests or the stub server. "
+            "Stub service.analyze_document / service.analyze_packet instead.")
+
+
+anthropic.Anthropic = _BlockedAnthropic
 
 from schema import (
     BequestLanguage, DefinedTerm, DocumentAnnotation, Finding as SingleFinding,

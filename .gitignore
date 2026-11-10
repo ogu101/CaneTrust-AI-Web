@@ -218,3 +218,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# CaneTrust: local documents and results (templates live in assets/, which stays tracked)
+INPUT/
+OUTPUT/
+private/
+
+# UI test dependencies
+ui_test/node_modules/
+
+# macOS and local scratch files
+.DS_Store
+scratchpad/
