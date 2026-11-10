@@ -10,6 +10,9 @@ phases 1-5.
 |---|---|---|---|---|
 | Phase 0 | tools/probe_schemas.py (triage, single, multi) | 3 | 4,765 | 128 |
 | Phase 3 | tools/probe_schemas.py (triage, facts, annotation, annotation strict trial) | 4 | 7,300 | 192 |
+| Phase 5 | tools/e2e_local.py, the one full run (triage, facts, 1 chain) | 3 | 7,149 (+2,452 cache write) | 11,279 |
+| Phase 5 | tools/live_triage.py on the five Marlowe PDFs (verify the key-lines fix) | 1 | 2,015 (+1,314 cache read, +1,200 cache write) | 1,128 |
+| **Total** | | **11** | **21,229** (+ cache 4,966) | **12,727** |
 
 ## Phase 0: clean start (done)
 
@@ -187,7 +190,44 @@ Checks deleted because their subject no longer exists:
 - D4.5: at most 40 files per request (MAX_FILES), an arbitrary guard against abuse.
 - D4.6: the legacy fields `amendments_meta` and `status` are accepted and ignored.
 
+## Phase 5: deploy prep (done up to the push)
+
+- `tools/check_bundle.py`: simulates excludeFiles over `git ls-files`, requires the assets and
+  template, forbids tests/fixtures/tools/docs/real documents/.env, imports the app with VERCEL=1
+  from a read-only copy of exactly the bundle (health + a refused scan), checks that every
+  project module came from the bundle and nothing was written, and checks requirements.txt
+  against the bundle's imports. Result: 27 files, OK.
+- vercel.json: /api/(.*) rewrite and maxDuration 300 kept; excludeFiles now also has docs/**,
+  scratchpad/**, private/**, .claude/**, CLAUDE.md (tools/** was already there).
+- `tools/e2e_local.py`, run ONCE for real on the five Marlowe PDFs: triage 12.6 s (5 documents,
+  types and dates right, no flags), annotation of 1 chain with facts beside it 138.8 s, workbook
+  `scratchpad/e2e_marlowe.xlsx` (Instructions, Packet map, "Third Amendment and Restatement"),
+  90 citations all to existing labels (1, 2), no warnings. 3 calls, 7,149 input, 11,279 output.
+- FINDING from that run: the fictional Fourth Amendment revokes the 2013 restatement in its first
+  section, but triage previews (first 2 / last 6 lines) never showed that line, so `revokes[]`
+  was empty, the chain kept the restatement as base, and the annotator rightly answered "Could
+  not determine" for the operative position (the restored instruments were not sent). Fixed:
+  previews now carry up to 4 "key lines" that revoke, restate or amend (triage_previews.py,
+  assets/triage_rules.md). Verified with one live triage on the same files: d5 revokes
+  2013-05-02; chain c1 = base d1 (revival assumed), d2, d3 active (revival assumed), d4 revoked,
+  d5 active. The full annotation of that 4-amendment chain was NOT re-run live (one-run rule).
+  A stubbed pipeline test now covers this exact scenario.
+- `docs/VERCEL_TEST.md` (manual preview test), README deploy section, measured timings.
+- Suites: pages 97, gay 140 (+9 skipped), triage 115, chains 83, facts 40, annotate 47,
+  workbook 77, pipeline 69, web 123, UI 58.
+
+### Decisions
+
+- D5.1: the e2e tool refuses any input but the five Marlowe fixtures (real calls on anything else
+  are not allowed).
+- D5.2: preview "key lines" match revoke / revocation / "hereby amend|restate" / "amended and
+  restated" / "in its entirety", at most 4, between the head and tail lines.
+- D5.3: `vercel` CLI is not installed here and there is no .vercel/project.json, so the preview
+  is not polled from this machine; the manual test is docs/VERCEL_TEST.md.
+
 ## Next
 
-Phase 5: tools/check_bundle.py, vercel.json, tools/e2e_local.py (one real run), docs/VERCEL_TEST.md,
-README deploy section, push, preview check.
+- Push the branch (done if the commit log shows "Deploy prep" on origin), then run
+  docs/VERCEL_TEST.md on the preview.
+- Watch the 4-amendment Marlowe chain's annotation time on Vercel Hobby (300 s).
+- Milestone 9: OCR through the page source, then docs/ACCEPTANCE.md on fixtures/gay.

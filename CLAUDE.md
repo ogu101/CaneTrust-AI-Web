@@ -23,16 +23,18 @@ is not built: scanned PDFs are refused.
 
 .venv/bin/python test_pages.py                         # page reader + labeler + page source (97 checks)
 .venv/bin/python test_gay_fixtures.py                  # real-fixture expectations; text checks skip until OCR (140 checks)
-.venv/bin/python test_triage.py                        # triage with a stubbed model, invented pages (113 checks)
+.venv/bin/python test_triage.py                        # triage with a stubbed model, invented pages (115 checks)
 .venv/bin/python test_chains.py                        # chain building, table-driven (83 checks)
 .venv/bin/python test_facts.py                         # facts lane; reproduces expected_facts.json (40 checks)
 .venv/bin/python test_annotate.py                      # annotation schema, request, cited-page check, parallel chains (47 checks)
 .venv/bin/python test_workbook.py                      # template rendering, chain sheets, packet map, tallies (77 checks)
-.venv/bin/python test_pipeline.py                      # end to end with stubbed calls; plan validation; CLI (64 checks)
+.venv/bin/python test_pipeline.py                      # end to end with stubbed calls; plan validation; CLI (69 checks)
 .venv/bin/python test_web.py                           # page reading + HTTP API, both steps and the legacy request (123 checks)
 cd ui_test && npm install && node test_ui.mjs          # drives public/index.html (drop zone, confirm screen) in jsdom against a stub server (58 checks)
 
+.venv/bin/python tools/check_bundle.py                 # what Vercel would deploy; imports the app from that bundle (no network)
 .venv/bin/python tools/probe_schemas.py                # REAL (tiny, paid): does the API accept each tool schema?
+.venv/bin/python tools/e2e_local.py                    # REAL (paid): the five Marlowe PDFs end to end; workbook to scratchpad/
 .venv/bin/python tools/live_triage.py FILE... [--expected MAP]   # REAL (paid) triage; prints the map, never page text
 ```
 
@@ -70,7 +72,8 @@ what triage finds, never on how many files were uploaded.
    `sidecar_dir`. `PageRecord.position` orders pages and is never a label. Errors here are the user's
    to fix; the API runs this before streaming.
 2. **`service.triage_packet()`**: `triage.triage()` makes one strict `record_triage` call per window over
-   `triage_previews.py` previews (first 2 / last 6 lines + code-computed features), validates (retry
+   `triage_previews.py` previews (first 2 / last 6 lines, up to 4 revoke/restate "key lines",
+   code-computed features), validates (retry
    once, then conservative repair + `needs_attention`), applies `assets/default_treatments.json`
    (authoritative; a blank form is `log_only`), labels each document, adds cross-check flags, and
    records `refers_to[]` and `revokes[]`. The result becomes a `plan.Plan`.

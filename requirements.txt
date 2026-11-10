@@ -1,4 +1,4 @@
-# Runtime dependencies. Keep in sync with pyproject.toml.
+# Runtime dependencies (deployed). tools/check_bundle.py checks this list against the bundle's imports.
 anthropic>=1.13.0
 fastapi>=0.143.0
 python-multipart>=0.0.32

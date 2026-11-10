@@ -7,7 +7,8 @@ Pages come through the page-source seam (page_source.load_pages): the PDF text l
 sidecar <file>.pages.json next to the file (this is a dev tool, so sidecars are allowed). Each
 file's id is its file name, which is what expected_map.json uses.
 
-Prints file, sheets, type, date, treatment, confidence and flags per document. With --expected
+Prints id, file, sheets, type, date, treatment, confidence, revoked dates and flags per
+document, then the chains built from that map (ids and statuses only). With --expected
 it also prints a mismatch table, boundaries first, and exits 1 on any mismatch. It never prints
 page text or text the model returned (titles, names, reasons, evidence).
 """
@@ -88,10 +89,20 @@ def main(argv=None) -> int:
     flags_by_doc: dict[str, list[str]] = {}
     for f in result.flags:
         flags_by_doc.setdefault(f.document or "-", []).append(f.code)
-    print(table([(d.file_id, f"{d.first_sheet}-{d.last_sheet}", d.doc_type,
+    print(table([(d.id, d.file_id, f"{d.first_sheet}-{d.last_sheet}", d.doc_type,
                   d.date.isoformat() if d.date else "-", d.treatment, d.confidence,
+                  ", ".join(r["date"] or "undated" for r in d.revokes) or "-",
                   ", ".join(flags_by_doc.get(d.id, [])) or "-") for d in result.documents],
-                ("file", "sheets", "type", "date", "treatment", "confidence", "flags")))
+                ("id", "file", "sheets", "type", "date", "treatment", "confidence", "revokes", "flags")))
+
+    from chains import build_chains, from_triaged
+    chained = build_chains([from_triaged(d, order=i) for i, d in enumerate(result.documents)])
+    print("\nchains (ids and statuses only):")
+    for c in chained.chains:
+        members = ", ".join(f"{m.id}:{m.status}{'+revival' if m.revival_assumed else ''}" for m in c.members)
+        print(f"  {c.id} {c.family}: base {c.base}, amendments {c.amendments}; {members}; gaps {len(c.gaps)}")
+    for f in chained.flags:
+        print(f"  chain flag: {f.code} {f.document or '-'}")
     if "-" in flags_by_doc:
         print(f"\npacket flags: {', '.join(flags_by_doc['-'])}")
     print(f"\nretries {result.retries_used}, needs_attention {result.needs_attention}, "

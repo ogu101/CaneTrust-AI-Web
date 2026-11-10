@@ -305,6 +305,18 @@ long_page = PageRecord("f", 1, "\n".join([MARKER + " " + "word " * 80] + BODY * 
 long_preview = build_previews({"f": [long_page]}, max_chars=1500)[0]
 check(all(len(line) <= 161 for line in long_preview.text.splitlines()[1:-1]), "preview lines are cut at 160 characters")
 check(len(long_preview.text.splitlines()) == 1 + 2 + 1 + 6 + 1, "first 2 and last 6 lines, with an ellipsis between")
+revoking_page = PageRecord("f", 1, "\n".join(
+    ["Fourth Amendment", "Heading two"] + BODY[:2]
+    + ["1. Revocation of the Earlier Restatement. The earlier restatement and",
+       "Restatement dated May 2, 2013 is revoked in its entirety and has no effect."]
+    + BODY + ["The Trustor hereby amends Article 4.", "Another revoked line", "A fifth revocation line"]
+    + BODY + ["Signature", "Page 1"]))
+rp = build_previews({"f": [revoking_page]}, max_chars=1500)[0].text.splitlines()
+key_at = rp.index("key lines:")
+check(rp[3] == "key lines:" and rp[key_at + 1].startswith("1. Revocation") and "May 2, 2013 is revoked" in rp[key_at + 2],
+      "a revocation in the middle of a sheet reaches the preview as key lines, with its date")
+check(rp[key_at + 3] == "The Trustor hereby amends Article 4." and rp[key_at + 4] == "Another revoked line"
+      and rp[key_at + 5] == "...", "at most 4 key lines, then the ellipsis")
 f = page_features("Header\nbody\nAcct ref #12345678v2\n20231005\nForm No. 5.310 1 of 2", max_bare=12)
 check(f.doc_numbers == ("#12345678v2", "20231005") and f.forms == ("Form No. 5.310",),
       "'#NNNNNNNNvN' and bare 6+ digit runs are footer document numbers")

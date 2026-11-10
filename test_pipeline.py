@@ -138,6 +138,31 @@ check(msg.index("=== Trust [BASE]") < msg.index("=== Amendment 1 [ACTIVE]") and 
       "the model reads base then amendment, told what was superseded")
 SURFACES += messages + result.warnings
 
+# The real Fourth Amendment revokes the 2013 restatement (seen in the first live run). With
+# revokes[] filled, the chain revives the 1998 trust and its first two amendments.
+def revoking_triage(request):
+    answer = testkit.triage_answer(request)
+    for d in answer["documents"]:
+        if "fourth" in d["file_id"]:
+            d["revokes"] = [{"what": "third amendment and restatement", "date": "2013-05-02"}]
+    return answer
+
+
+result, wb, stub, messages = run(marlowe(0, 1, 2, 3, 4), StubModel({"record_triage": revoking_triage}))
+ws = wb[wb.sheetnames[2]]
+check(sheet_ok(ws, 4) and ws["B10"].value.startswith("TRUST") and "00 marlowe trust original" in ws["B4"].value.split(";")[0],
+      "a revoked restatement: the 1998 trust is the base again, with four amendment columns")
+check(ws["I11"].value.startswith("Amendment 3: 03 marlowe third amendment") and "REVOKED by Amendment 4" in ws["I11"].value,
+      "the revoked restatement keeps its column, marked revoked by its revoker")
+check("revival assumed" in ws["G11"].value and "Revival assumed" in ws["B3"].value,
+      "revival is flagged as an assumption on the sheet")
+rows = {r["id"]: r for r in packet_rows(wb)}
+check("revival_assumed" in (rows["d1"]["flags"] or "") and rows["d4"]["chain"].startswith("c1 Amendment 3 (revoked by d5)"),
+      "the packet map shows the revival flag and the revocation")
+msg = stub.calls("analyze_documents")[0]["messages"][0]["content"]
+check("Amendment 3 [REVOKED by Amendment 4]" in msg and "Trust [BASE; revival assumed]" in msg,
+      "the model is told which instrument is revoked and that revival is assumed")
+
 # ---------------------------------------------------------------------------
 # 3. A will with a codicil, and 4. a mixed packet with facts
 # ---------------------------------------------------------------------------

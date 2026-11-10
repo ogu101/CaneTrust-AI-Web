@@ -4,7 +4,12 @@ page, never the whole packet. A preview is
 
     [<file_id> sheet <n>]
     the first 2 and last 6 non-empty lines, each cut at about 160 characters
+    key lines: up to 4 lines from the middle of the sheet that revoke, restate or amend
     features: ...      computed here, in code, not by the model
+
+Key lines exist because an amendment often revokes or restates an earlier instrument in its
+first numbered section, which the first and last lines miss; without them triage cannot fill
+`revokes[]` (found in the first real run on the fictional Marlowe packet).
 
 Features: the printed-number candidate (page_labels), document-system numbers in the footer, form
 numbers, dates found by pattern, and a count of "University of Miami" mentions. Dates and
@@ -38,6 +43,9 @@ _DOC_NUMBER_RES = [
 ]
 _FORM_RE = re.compile(r"\bForm\s+No\.?\s*[\w.\-]+", re.I)
 _UM_RE = re.compile(r"University\s+of\s+Miami", re.I)
+_KEY_RE = re.compile(r"\brevok\w*|\brevocation\b|\bhereby\s+(?:amend|restate)\w*|\bamended\s+and\s+restated\b"
+                     r"|\bin\s+(?:its|their)\s+entirety\b", re.I)
+MAX_KEY_LINES = 4
 
 
 @dataclass(frozen=True)
@@ -92,8 +100,12 @@ def _features_line(f: PageFeatures) -> str:
 
 def build_preview(page: PageRecord, *, sheets_in_file: int, max_chars: int) -> Preview:
     lines = _lines(page.text)
-    picked = lines if len(lines) <= HEADER_LINES + FOOTER_LINES else (
-        lines[:HEADER_LINES] + ["..."] + lines[-FOOTER_LINES:])
+    if len(lines) <= HEADER_LINES + FOOTER_LINES:
+        picked = lines
+    else:
+        middle = lines[HEADER_LINES:-FOOTER_LINES]
+        key = [line for line in middle if _KEY_RE.search(line)][:MAX_KEY_LINES]
+        picked = lines[:HEADER_LINES] + (["key lines:"] + key + ["..."] if key else ["..."]) + lines[-FOOTER_LINES:]
     picked = [line if len(line) <= LINE_CHARS else line[:LINE_CHARS] + "…" for line in picked]
     features = page_features(page.text, max_bare=sheets_in_file + BARE_SLACK)
     head = f"[{page.file_id} sheet {page.position}]"

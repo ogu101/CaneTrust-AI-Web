@@ -65,28 +65,47 @@ Command line: list the files in `config.py`, then `python cli.py`. Tests: every 
 
 ## Deploy to Vercel
 
-1. Push the project (not `canetrust_ai_venv/`, `INPUT/`, `OUTPUT/`; the ignore files cover them).
-2. Set environment variables in the project settings:
+Work on a branch: pushing it makes Vercel build a preview, and `main` (production) stays as it is.
+
+1. Check the bundle locally: `python tools/check_bundle.py`. It applies `vercel.json`'s
+   `excludeFiles` to the tracked files, confirms `assets/` and the template ship, imports the app
+   from a read-only copy of exactly the bundle with `VERCEL=1`, and checks `requirements.txt`
+   against the bundle's imports. It makes no network call.
+2. Push the branch (`git push -u origin <branch>`). Vercel builds a preview. `INPUT/`, `OUTPUT/`,
+   `private/`, `scratchpad/` and `.env` are git-ignored, so they never reach it.
+3. Environment variables (project settings, applied to Preview as well as Production):
 
 | Variable | Notes |
 |---|---|
 | `ANTHROPIC_API_KEY` | required |
-| `CANETRUST_ACCESS_CODE` | required: the shared code users type into the page |
-| `CANETRUST_DEADLINE_SECONDS` | default 280; keep it below `maxDuration` |
-| `CANETRUST_MODEL`, `CANETRUST_EFFORT`, `CANETRUST_MAX_TOKENS_MULTI` | optional tuning |
+| `CANETRUST_ACCESS_CODE` | required: the shared code users type into the page (without it the app answers 503) |
+| `CANETRUST_DEADLINE_SECONDS` | default 280; keep it below `maxDuration` (300) |
+| `CANETRUST_MODEL`, `CANETRUST_EFFORT`, `CANETRUST_MAX_TOKENS_ANNOTATE` | optional tuning; lower `CANETRUST_EFFORT` (e.g. `medium`) if long chains hit the deadline |
+| `CANETRUST_MAX_STATE_MB` | default 3.0 MB of page text held by the browser between the two steps |
 
-3. Check `GET /api/health` after deploying: `assets_present` and `api_key_set` should be true.
+4. Test the preview by hand, following `docs/VERCEL_TEST.md`: health, the Marlowe set through the
+   confirm screen, a scan refused, a wrong access code, a file over 4 MB, and the function logs.
+
+`vercel.json` keeps the `/api/(.*)` rewrite to `api/index.py` and `maxDuration` 300; its
+`excludeFiles` keeps tests, fixtures, tools, docs, the CLI and dev files out of the function.
 
 ## Limits that come from Vercel
 
-- **Request and response bodies: 4.5 MB.** The app caps one upload at 4.0 MB total.
-- **Function duration: 300 s on Hobby; up to 800 s on Pro.** `vercel.json` sets 300. On Pro, set
-  `maxDuration` to 800 and `CANETRUST_DEADLINE_SECONDS` to about 780.
+- **Request and response bodies: 4.5 MB.** The app caps one upload at 4.0 MB total, and the page
+  text the browser holds between triage and annotation at 3 MB.
+- **Function duration: 300 s on Hobby; up to 800 s on Pro.** `vercel.json` sets 300. Triage and
+  annotation are separate requests, each with its own 300 s. On Pro, set `maxDuration` to 800 and
+  `CANETRUST_DEADLINE_SECONDS` to about 780.
 - **Python bundle: 500 MB.** Only runtime files are bundled (see `excludeFiles`).
+
+## Measured (local, real API, claude-sonnet-4-6, November 2026)
+
+The fictional Marlowe packet (5 PDFs, 7 sheets): triage 12.6 s; annotation of one chain (a
+restatement plus one amendment) with the facts lane beside it 138.8 s. Longer chains take
+longer: a chain with four amendments may approach the 300 s limit on Hobby.
 
 ## Known limitations
 
-- Scanned PDFs are not supported yet, so many real documents will be refused.
-- Not yet deployed: run `vercel dev` and a preview deployment before relying on it.
-- The multi-document model call has not been timed against the live API; it may exceed 300 s.
+- Scanned PDFs are not supported yet (OCR is milestone 9), so many real documents will be refused.
+- A long chain may exceed 300 s on Vercel Hobby; there is no retry or resume across requests.
 - Documents are sent to the model provider in full; there is no confidentiality routing.

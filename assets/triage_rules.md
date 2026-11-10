@@ -9,10 +9,11 @@ Each sheet is shown as:
 ```
 [<file_id> sheet <n>]
 the first 2 and the last 6 non-empty lines of the sheet
+(sometimes "key lines:" and up to 4 lines from the middle of the sheet that revoke, restate or amend)
 features: printed=... | doc_number=... | form=... | dates=... | um_mentions=...
 ```
 
-The `features` line is computed by code, not written by a person. `printed` is the most likely printed page number on the sheet. `doc_number` lists law-firm document-system numbers found in the footer. `form` lists form numbers. `dates` lists dates found anywhere on the sheet. `um_mentions` counts mentions of the University of Miami on the whole sheet.
+Key lines are picked by code because they mention revoking, restating or amending: use them for `refers_to` and `revokes`. The `features` line is computed by code, not written by a person. `printed` is the most likely printed page number on the sheet. `doc_number` lists law-firm document-system numbers found in the footer. `form` lists form numbers. `dates` lists dates found anywhere on the sheet. `um_mentions` counts mentions of the University of Miami on the whole sheet.
 
 ## Document types
 
