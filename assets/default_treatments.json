@@ -1,0 +1,6 @@
+{
+  "_note": "Default treatment per document type (docs/DESIGN.md, 'Default treatments'). Editable. Authoritative over the model's proposal; a blank form is always log_only.",
+  "annotate": ["restated_trust", "trust", "amendment", "will", "codicil", "other_dispositive"],
+  "facts_only": ["letter", "letters_of_administration", "notice_of_administration", "notice_to_creditors", "receipt_of_notice", "other_administrative"],
+  "log_only": ["accounting", "unknown"]
+}

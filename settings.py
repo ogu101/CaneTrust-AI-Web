@@ -20,6 +20,12 @@ Environment variables
     CANETRUST_MAX_PAGES           default 250 pages per PDF
     CANETRUST_MAX_CHARS           default 800000 characters of text per packet
     CANETRUST_DEADLINE_SECONDS    default 280 (stay under the function's maxDuration)
+    CANETRUST_TRIAGE_MODEL        default: CANETRUST_MODEL
+    CANETRUST_TRIAGE_EFFORT       default medium
+    CANETRUST_TRIAGE_MAX_TOKENS   default 16000
+    CANETRUST_TRIAGE_PREVIEW_CHARS  default 1500 characters per page preview
+    CANETRUST_TRIAGE_WINDOW_PAGES   default 250 sheets per triage call
+    CANETRUST_TRIAGE_WINDOW_OVERLAP default 10 sheets shared by neighbouring windows
     CANETRUST_DEBUG_DIR           if set, the model's raw JSON is written there
     CANETRUST_DISABLE_DOTENV      1 = never read .env (the tests set this so a local key is not used)
 """
@@ -51,6 +57,14 @@ class Settings:
     template_multi: Path
     rules_single: Path
     rules_multi: Path
+    triage_model: str
+    triage_effort: str
+    triage_max_tokens: int
+    triage_preview_chars: int
+    triage_window_pages: int
+    triage_window_overlap: int
+    triage_rules: Path
+    default_treatments: Path
 
 
 def load_local_env() -> None:
@@ -82,9 +96,15 @@ def _int(name: str, default: int) -> int:
 def load_settings() -> Settings:
     debug_dir = os.getenv("CANETRUST_DEBUG_DIR")
     max_mb = float(os.getenv("CANETRUST_MAX_UPLOAD_MB") or 4.0)
+    model = os.getenv("CANETRUST_MODEL") or "claude-sonnet-4-6"
+    window = _int("CANETRUST_TRIAGE_WINDOW_PAGES", 250)
+    overlap = _int("CANETRUST_TRIAGE_WINDOW_OVERLAP", 10)
+    if window < 2 or not 0 <= overlap < window:
+        raise ValueError("CANETRUST_TRIAGE_WINDOW_OVERLAP must be at least 0 and smaller than "
+                         "CANETRUST_TRIAGE_WINDOW_PAGES, which must be at least 2")
     return Settings(
         api_key=os.getenv("ANTHROPIC_API_KEY") or None,
-        model=os.getenv("CANETRUST_MODEL") or "claude-sonnet-4-6",
+        model=model,
         effort=os.getenv("CANETRUST_EFFORT") or "high",
         max_tokens_single=_int("CANETRUST_MAX_TOKENS_SINGLE", 8000),
         max_tokens_multi=_int("CANETRUST_MAX_TOKENS_MULTI", 48000),
@@ -100,6 +120,14 @@ def load_settings() -> Settings:
         template_multi=ASSETS / "MiLA_Annotation_Template_Amendments_v0.xlsx",
         rules_single=ASSETS / "extraction_rules.md",
         rules_multi=ASSETS / "extraction_rules_multi.md",
+        triage_model=os.getenv("CANETRUST_TRIAGE_MODEL") or model,
+        triage_effort=os.getenv("CANETRUST_TRIAGE_EFFORT") or "medium",
+        triage_max_tokens=_int("CANETRUST_TRIAGE_MAX_TOKENS", 16000),
+        triage_preview_chars=_int("CANETRUST_TRIAGE_PREVIEW_CHARS", 1500),
+        triage_window_pages=window,
+        triage_window_overlap=overlap,
+        triage_rules=ASSETS / "triage_rules.md",
+        default_treatments=ASSETS / "default_treatments.json",
     )
 
 
