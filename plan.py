@@ -76,12 +76,14 @@ class Plan:
     documents: list[PlanDocument]
     flags: list[dict] = field(default_factory=list)       # packet-level triage flags
     needs_attention: bool = False
+    edits: list[dict] = field(default_factory=list)       # confirm-screen corrections (audit record)
 
     def to_dict(self) -> dict:
         return {"version": PLAN_VERSION, "name": self.name,
                 "files": [vars(f).copy() for f in self.files],
                 "documents": [d.to_dict() for d in self.documents],
-                "flags": list(self.flags), "needs_attention": self.needs_attention}
+                "flags": list(self.flags), "needs_attention": self.needs_attention,
+                "edits": list(self.edits)}
 
     def document(self, doc_id: str) -> PlanDocument:
         return next(d for d in self.documents if d.id == doc_id)
@@ -228,7 +230,22 @@ def validate_plan(raw, sheets_by_file: dict[str, int]) -> tuple[Plan | None, lis
     docs.sort(key=lambda d: (order[d.file_id], d.first_sheet))
     name = str(raw.get("name") or "annotation")[:120]
     flags = [f for f in raw.get("flags", []) if isinstance(f, dict)][:50] if isinstance(raw.get("flags"), list) else []
-    return Plan(name, files, docs, flags, bool(raw.get("needs_attention"))), []
+    return Plan(name, files, docs, flags, bool(raw.get("needs_attention")), _edits(raw.get("edits"))), []
+
+
+MAX_EDITS = 200
+
+
+def _edits(value) -> list[dict]:
+    """The confirm screen's corrections, kept as an audit record in the workbook. Short strings."""
+    if not isinstance(value, list):
+        return []
+    out = []
+    for e in value[:MAX_EDITS]:
+        if isinstance(e, dict):
+            out.append({k: str(e.get(k) if e.get(k) is not None else "")[:MAX_TEXT_FIELD]
+                        for k in ("document", "field", "from", "to")})
+    return out
 
 
 # ---------------------------------------------------------------------------

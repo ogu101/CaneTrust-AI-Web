@@ -167,6 +167,49 @@ def triage_packet(loaded: LoadedFiles, settings: Settings, progress: Progress = 
     return TriageOutcome(plan, loaded, loaded.warnings + result.warnings, dict(result.usage))
 
 
+def can_skip_confirm(plan: Plan) -> bool:
+    """The confirm screen may be skipped only for a trivial packet: exactly one document, high
+    confidence, no flags of any kind, and nothing needing attention."""
+    return (len(plan.documents) == 1 and plan.documents[0].confidence == "high"
+            and not plan.documents[0].flags and not plan.flags and not plan.needs_attention)
+
+
+def state_bytes(texts_by_file: dict[str, list[str]]) -> int:
+    """Size of the page text the browser holds between triage and annotation."""
+    return sum(len(t.encode("utf-8")) for texts in texts_by_file.values() for t in texts)
+
+
+def page_texts(loaded: LoadedFiles) -> dict[str, list[str]]:
+    return {file_id: [p.text for p in pages] for file_id, pages in loaded.pages_by_file.items()}
+
+
+def pages_from_texts(texts_by_file, settings: Settings) -> dict[str, list]:
+    """Page records rebuilt from the texts a client sends back. Raises ValueError with a message
+    that names files and counts only."""
+    from page_reader import records_from_texts
+    if not isinstance(texts_by_file, dict) or not texts_by_file:
+        raise ValueError("'pages' must map each file id to its list of page texts.")
+    out = {}
+    for file_id, texts in texts_by_file.items():
+        if not isinstance(texts, list) or not texts or not all(isinstance(t, str) for t in texts):
+            raise ValueError(f"{file_id}: pages must be a non-empty list of page texts.")
+        if len(texts) > settings.max_pages:
+            raise ValueError(f"{file_id}: {len(texts)} pages is more than the {settings.max_pages}-page limit.")
+        out[file_id] = records_from_texts(file_id, texts)
+    return out
+
+
+def confirmed_plan_problems(plan: Plan) -> list[str]:
+    """Problems the confirm screen must fix before annotation can run. Ids and counts only."""
+    problems = []
+    for chain in chain_plan(plan).chains:
+        n = len([m for m in chain.members if m.status in ("active", "revoked")])
+        if n > annotate_module.MAX_AMENDMENTS:
+            problems.append(f"chain {chain.id} has {n} amendments; the workbook has room for "
+                            f"{annotate_module.MAX_AMENDMENTS}. Exclude some, or mark them superseded.")
+    return problems
+
+
 def auto_confirm_problem(plan: Plan) -> str | None:
     """Why the one-shot path must not proceed without a person, or None."""
     if plan.needs_attention:
@@ -296,6 +339,8 @@ def annotate_plan(plan: Plan, pages_by_file: dict[str, list], settings: Settings
             "chain": chain_of.get(d.id, ""), "flags": "\n".join(flags)})
     notes = ([f"{f['code']}: {f['detail']}" for f in plan.flags]
              + [f"{c}" for c in chain_flags.get(None, [])] + warnings)
+    notes += [f"Corrected on the confirm screen: {e['document']} {e['field']}: {e['from'] or '(empty)'} -> "
+              f"{e['to'] or '(empty)'}" for e in plan.edits]
     if len(notes) > MAX_NOTES:
         notes = notes[:MAX_NOTES] + [f"... and {len(notes) - MAX_NOTES} more"]
 

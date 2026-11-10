@@ -1,36 +1,36 @@
 """
 Web API (FastAPI on Vercel's Python runtime).
 
-    POST /api/annotate   multipart upload in, newline-delimited JSON events out
+    POST /api/triage     files in (multipart) -> NDJSON progress, then the plan and page texts
+    POST /api/annotate   confirmed plan and page texts in (JSON) -> NDJSON progress, then the workbook
+                         or the legacy request (multipart: one file, label, status) -> the workbook
     GET  /api/health     is the deployment configured?
 
+Two requests, never one held open while a person decides (docs/DESIGN.md, "API and hosting").
+Between them the browser holds the state: the plan and the page texts, capped at
+CANETRUST_MAX_STATE_MB (default 3 MB of page text). The server trusts none of it: /api/annotate
+re-validates the plan (coverage, ranges, types, treatments, overrides), rebuilds the page records,
+and recomputes labels and chains before any model call.
+
 How a request flows
-    1. Cheap checks first, answered with a normal HTTP error: access code, file count and
-       size, file types, then page text and size limits (service.load_files). A scanned PDF
-       or an oversized upload fails HERE, in well under a second, not minutes into a model call.
-    2. Only then does the response start streaming. The pipeline (triage, then every chain
-       annotated with the facts lane beside it; service.annotate_one_shot) runs in a worker thread
-       and the response emits progress events and a heartbeat every few seconds. Vercel
-       recommends this for long requests: idle HTTP/1.1 connections can be closed by
-       intermediaries, and a stream also lets the page show that work is happening.
-    3. The finished workbook travels in the last event, base64-encoded (it is tens of KB).
-       No storage is needed, and nothing is written to disk.
+    1. Cheap checks first, answered with a normal HTTP error: access code, size, file types, page
+       text (a scan is refused here), the state cap, the plan. Nothing streams until they pass.
+    2. Then the response streams. The slow work runs in a worker thread; the stream carries its
+       progress and a heartbeat every 10 s (idle connections can be closed by intermediaries).
+    3. The result travels in the last event: the plan and page texts after triage, the workbook
+       (base64) after annotation. No storage is needed, and nothing is written to disk.
 
-Two ways to call /api/annotate
-    streaming   send the header  Accept: application/x-ndjson  (the new page does). Progress
-                events and a heartbeat stream back; see below.
-    classic     no such header. The old contract still works: one file in the field `file`
-                (or `trust`), optional `label` (the matter name) and `status` (accepted; the
-                status now comes from the chain); the workbook bytes come back in the response.
-                Errors are JSON with a status code. If triage needs a person's decision the
-                answer is 409 needs_confirmation: use the confirm screen.
-                Use this to keep an existing page working while a new one is built.
-
-Events (one JSON object per line, streaming mode):
+Events (one JSON object per line):
     {"type":"progress","message":"..."}
     {"type":"heartbeat","elapsed":42}
+    {"type":"triaged","plan":{...},"pages":{"file id":["page text", ...]},"skip_confirm":false,"warnings":[...]}
     {"type":"done","filename":"...","route":"unified","warnings":[...],"chains":[...],"xlsx_base64":"..."}
     {"type":"error","code":"...","message":"..."}
+
+The legacy request (multipart to /api/annotate: `file` or `trust`, optional `label`, `status`,
+`amendment_files`) runs the one-shot path: triage, accept triage's plan as it stands, annotate.
+Without `Accept: application/x-ndjson` it answers with the workbook bytes, as the first version
+did; if triage needs a person it answers 409 needs_confirmation (use the two-step flow).
 
 Nothing from the uploaded documents is logged: only event types, sizes and error classes.
 """
@@ -44,7 +44,6 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Annotated
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -52,12 +51,18 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import anthropic
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import ValidationError
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import UploadFile
 
 from page_reader import SUPPORTED_SUFFIXES, ExtractionError
-from service import NeedsConfirmation, UploadedFile, annotate_one_shot, describe_failure, load_files
+from plan import validate_plan
+from service import (
+    UploadedFile, annotate_one_shot, annotate_plan, can_skip_confirm, confirmed_plan_problems,
+    describe_failure, load_files, page_texts, pages_from_texts, state_bytes, triage_packet,
+)
 from settings import Settings, load_local_env, load_settings
 
 load_local_env()
@@ -65,6 +70,7 @@ load_local_env()
 app = FastAPI(title="CaneTrust", docs_url=None, redoc_url=None, openapi_url=None)
 
 HEARTBEAT_SECONDS = 10
+MAX_FILES = 40
 
 _STATUS_FOR_KIND = {
     "unsupported": 415,
@@ -74,7 +80,6 @@ _STATUS_FOR_KIND = {
     "empty": 400,
     "invalid": 400,
 }
-
 
 _STATUS_FOR_FAILURE = {
     "needs_confirmation": 409,
@@ -88,24 +93,24 @@ _STATUS_FOR_FAILURE = {
 }
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+NDJSON_HEADERS = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, code: str, message: str):
+    def __init__(self, status: int, code: str, message: str, **extra):
         super().__init__(message)
-        self.status, self.code, self.message = status, code, message
+        self.status, self.code, self.message, self.extra = status, code, message, extra
 
 
 @app.exception_handler(ApiError)
 async def _api_error(_request: Request, exc: ApiError):
-    return JSONResponse({"error": exc.message, "code": exc.code}, status_code=exc.status,
+    return JSONResponse({"error": exc.message, "code": exc.code, **exc.extra}, status_code=exc.status,
                         headers={"Cache-Control": "no-store"})
 
 
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
-
 def _check_access(settings: Settings, supplied: str) -> None:
     """A public URL that spends money on every call needs a gate. On Vercel a deployment
     with no access code configured refuses to run rather than running open."""
@@ -115,20 +120,44 @@ def _check_access(settings: Settings, supplied: str) -> None:
                            "This deployment has no access code set. The administrator "
                            "must set CANETRUST_ACCESS_CODE.")
         return
-    if not hmac.compare_digest(supplied.encode(), settings.access_code.encode()):
+    if not hmac.compare_digest((supplied or "").encode(), settings.access_code.encode()):
         raise ApiError(401, "bad_access_code", "That access code is not correct.")
-
-
-def _read_upload(upload: UploadFile, budget: int) -> UploadedFile:
-    data = upload.file.read(budget + 1)
-    if len(data) > budget:
-        raise ApiError(413, "too_large", _too_large_message(budget))
-    return UploadedFile(filename=upload.filename or "upload", data=data)
 
 
 def _too_large_message(limit_bytes: int) -> str:
     return (f"The files together are over the {limit_bytes / 1024 / 1024:.1f} MB limit for one "
             f"upload. Send fewer or smaller files.")
+
+
+async def _read_uploads(uploads: list, settings: Settings) -> list[UploadedFile]:
+    if not uploads:
+        raise ApiError(422, "missing_file", "Upload at least one file.")
+    if len(uploads) > MAX_FILES:
+        raise ApiError(400, "too_many_files", f"Send at most {MAX_FILES} files at a time.")
+    budget, out = settings.max_upload_bytes, []
+    for upload in uploads:
+        data = await upload.read(budget + 1)
+        if len(data) > budget:
+            raise ApiError(413, "too_large", _too_large_message(settings.max_upload_bytes))
+        budget -= len(data)
+        out.append(UploadedFile(filename=upload.filename or "upload", data=data))
+    return out
+
+
+def _load(files: list[UploadedFile], settings: Settings):
+    try:
+        return load_files(files, settings)
+    except ExtractionError as exc:
+        raise ApiError(_STATUS_FOR_KIND.get(exc.kind, 400), exc.kind, str(exc)) from exc
+    except ValueError as exc:
+        raise ApiError(400, "invalid_packet", str(exc)) from exc
+
+
+def _state_too_large(size: int, settings: Settings) -> ApiError:
+    return ApiError(413, "state_too_large",
+                    f"These files hold {size / 1048576:.1f} MB of page text, over the "
+                    f"{settings.max_state_bytes / 1048576:.1f} MB the browser can keep between the two "
+                    f"steps. Send fewer files at a time.")
 
 
 def _content_disposition(filename: str) -> str:
@@ -158,24 +187,22 @@ def _log_failure(exc: Exception) -> None:
     print(f"[error] {type(exc).__name__}: {detail}", file=sys.stderr)
 
 
-def _stream_annotation(files, settings: Settings, name: str):
+def _stream(work, settings: Settings, first_message: str):
+    """Run work(progress) in a thread; stream its progress, heartbeats, and a final event made
+    by work's return value: (event type, fields)."""
     events: queue.Queue = queue.Queue()
 
     def worker():
         try:
-            result = annotate_one_shot(files, settings, progress=lambda m: events.put(("progress", m)),
-                                       name=name)
-            events.put(("done", result))
+            events.put(("result", work(lambda m: events.put(("progress", m)))))
         except Exception as exc:                              # reported to the client, not raised
             events.put(("error", exc))
 
     threading.Thread(target=worker, daemon=True).start()
     started = time.monotonic()
-
-    yield _event("progress", message="Documents accepted.")
+    yield _event("progress", message=first_message)
     while True:
-        elapsed = time.monotonic() - started
-        if elapsed > settings.deadline_seconds:
+        if time.monotonic() - started > settings.deadline_seconds:
             yield _event("error", code="deadline",
                          message=(f"This is taking longer than the {settings.deadline_seconds} seconds "
                                   f"the server allows. Try fewer or shorter documents."))
@@ -185,14 +212,11 @@ def _stream_annotation(files, settings: Settings, name: str):
         except queue.Empty:
             yield _event("heartbeat", elapsed=int(time.monotonic() - started))
             continue
-
         if kind == "progress":
             yield _event("progress", message=payload)
-        elif kind == "done":
-            yield _event(
-                "done", filename=payload.filename, route=payload.route, warnings=payload.warnings,
-                chains=payload.chains, xlsx_base64=base64.b64encode(payload.xlsx).decode("ascii"),
-            )
+        elif kind == "result":
+            event_type, fields = payload
+            yield _event(event_type, **fields)
             return
         else:
             _log_failure(payload)
@@ -201,10 +225,14 @@ def _stream_annotation(files, settings: Settings, name: str):
             return
 
 
+def _done_fields(result) -> dict:
+    return {"filename": result.filename, "route": result.route, "warnings": result.warnings,
+            "chains": result.chains, "xlsx_base64": base64.b64encode(result.xlsx).decode("ascii")}
+
+
 # ---------------------------------------------------------------------------
 # routes
 # ---------------------------------------------------------------------------
-
 @app.get("/api/health")
 def health():
     settings = load_settings()
@@ -218,55 +246,96 @@ def health():
             settings.template, settings.annotation_rules, settings.triage_rules,
             settings.default_treatments)),
         "max_upload_mb": round(settings.max_upload_bytes / 1024 / 1024, 1),
+        "max_state_mb": round(settings.max_state_bytes / 1024 / 1024, 1),
         "supported_types": list(SUPPORTED_SUFFIXES),
     }
 
 
-@app.post("/api/annotate")
-def annotate(
-    request: Request,
-    trust: Annotated[UploadFile | None, File()] = None,
-    file: Annotated[UploadFile | None, File()] = None,            # classic field name for the trust
-    amendment_files: Annotated[list[UploadFile] | None, File()] = None,
-    amendments_meta: Annotated[str, Form()] = "[]",               # accepted and ignored: triage reads content
-    doc_name: Annotated[str, Form()] = "",
-    trust_label: Annotated[str, Form()] = "",
-    label: Annotated[str, Form()] = "",                           # classic: becomes the matter name
-    status: Annotated[str, Form()] = "",                          # classic: accepted; status now comes from the chain
-    access_code: Annotated[str, Form()] = "",
-):
+@app.post("/api/triage")
+async def triage_route(request: Request):
     settings = load_settings()
-    _check_access(settings, request.headers.get("x-access-code") or access_code)
+    form = await request.form()
+    _check_access(settings, request.headers.get("x-access-code") or str(form.get("access_code") or ""))
+    uploads = [f for f in form.getlist("files") if isinstance(f, UploadFile)]
+    files = await _read_uploads(uploads, settings)
+    loaded = await run_in_threadpool(_load, files, settings)
+    texts = page_texts(loaded)
+    size = state_bytes(texts)
+    if size > settings.max_state_bytes:
+        raise _state_too_large(size, settings)
+    name = str(form.get("doc_name") or "").strip() or None
 
-    first = trust or file
-    if first is None:
-        raise ApiError(422, "missing_file", "Upload the trust file in the field 'trust' (or 'file').")
+    def work(progress):
+        outcome = triage_packet(loaded, settings, progress, name=name)
+        return "triaged", {"plan": outcome.plan.to_dict(), "pages": texts,
+                           "skip_confirm": can_skip_confirm(outcome.plan), "warnings": outcome.warnings}
 
-    budget = settings.max_upload_bytes
-    uploads = []
-    for upload in [first, *(amendment_files or [])]:
-        uploaded = _read_upload(upload, budget)
-        budget -= len(uploaded.data)
-        uploads.append(uploaded)
+    return StreamingResponse(_stream(work, settings, "Files accepted."),
+                             media_type="application/x-ndjson", headers=NDJSON_HEADERS)
 
+
+@app.post("/api/annotate")
+async def annotate_route(request: Request):
+    settings = load_settings()
+    if (request.headers.get("content-type") or "").startswith("application/json"):
+        return await _annotate_plan(request, settings)
+    return await _annotate_legacy(request, settings)
+
+
+async def _annotate_plan(request: Request, settings: Settings):
     try:
-        load_files(uploads, settings)                 # fast checks before anything streams
-    except ExtractionError as exc:
-        raise ApiError(_STATUS_FOR_KIND.get(exc.kind, 400), exc.kind, str(exc)) from exc
+        body = await request.json()
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        raise ApiError(400, "bad_request", "The request body is not valid JSON.") from None
+    if not isinstance(body, dict):
+        raise ApiError(400, "bad_request", "Send a JSON object with 'plan' and 'pages'.")
+    _check_access(settings, request.headers.get("x-access-code") or str(body.get("access_code") or ""))
+    texts = body.get("pages")
+    if isinstance(texts, dict):
+        size = sum(len(t.encode("utf-8")) for v in texts.values() if isinstance(v, list)
+                   for t in v if isinstance(t, str))
+        if size > settings.max_state_bytes:
+            raise _state_too_large(size, settings)
+    try:
+        pages_by_file = pages_from_texts(texts, settings)
     except ValueError as exc:
-        raise ApiError(400, "invalid_packet", str(exc)) from exc
-    name = (doc_name or trust_label or label).strip() or Path(uploads[0].filename).stem
+        raise ApiError(400, "bad_pages", str(exc)) from exc
+    plan, problems = validate_plan(body.get("plan"), {f: len(p) for f, p in pages_by_file.items()})
+    if not problems:
+        problems = confirmed_plan_problems(plan)
+    if problems:
+        raise ApiError(422, "invalid_plan", "The document map has problems: " + "; ".join(problems[:5]),
+                       problems=problems)
+
+    def work(progress):
+        return "done", _done_fields(annotate_plan(plan, pages_by_file, settings, progress))
+
+    return StreamingResponse(_stream(work, settings, "Plan accepted."),
+                             media_type="application/x-ndjson", headers=NDJSON_HEADERS)
+
+
+async def _annotate_legacy(request: Request, settings: Settings):
+    """The original contract: `file` (or `trust`) plus optional `amendment_files`, `label`,
+    `status` (accepted; status now comes from the chain), `doc_name`, `trust_label`."""
+    form = await request.form()
+    _check_access(settings, request.headers.get("x-access-code") or str(form.get("access_code") or ""))
+    first = form.get("trust") or form.get("file")
+    if not isinstance(first, UploadFile):
+        raise ApiError(422, "missing_file", "Upload the trust file in the field 'trust' (or 'file').")
+    extra = [f for f in form.getlist("amendment_files") if isinstance(f, UploadFile)]
+    files = await _read_uploads([first, *extra], settings)
+    await run_in_threadpool(_load, files, settings)             # fast checks before anything streams
+    name = next((str(form.get(k)).strip() for k in ("doc_name", "trust_label", "label")
+                 if str(form.get(k) or "").strip()), None) or Path(files[0].filename).stem
 
     if "application/x-ndjson" in (request.headers.get("accept") or ""):
-        return StreamingResponse(
-            _stream_annotation(uploads, settings, name),
-            media_type="application/x-ndjson",
-            headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
-        )
+        def work(progress):
+            return "done", _done_fields(annotate_one_shot(files, settings, progress, name=name))
+        return StreamingResponse(_stream(work, settings, "Documents accepted."),
+                                 media_type="application/x-ndjson", headers=NDJSON_HEADERS)
 
-    # Classic mode: run to completion and return the workbook itself.
     try:
-        result = annotate_one_shot(uploads, settings, name=name)
+        result = await run_in_threadpool(annotate_one_shot, files, settings, name=name)
     except Exception as exc:
         _log_failure(exc)
         code, message = _describe_failure(exc)

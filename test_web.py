@@ -137,6 +137,16 @@ def events(response):
     return [json.loads(line) for line in response.text.splitlines() if line.strip()]
 
 
+def settle(timeout=10.0):
+    """Wait for worker threads left running by a stream that ended early (the deadline test),
+    so they cannot answer into the next test's stub."""
+    import threading
+    end = time.monotonic() + timeout
+    while time.monotonic() < end and any(t.daemon and t.is_alive() and t.name.startswith("Thread-")
+                                         for t in threading.enumerate()):
+        time.sleep(0.05)
+
+
 def stub(answers=None, pause=0.0):
     global STUB
     STUB = install_stub(service, StubModel(answers, pause))
@@ -272,6 +282,7 @@ with env(CANETRUST_DEADLINE_SECONDS="1"):
     ev = events(post())
     check(ev[-1]["type"] == "error" and ev[-1]["code"] == "deadline", "past the deadline the stream ends with a clear error")
 api_index.HEARTBEAT_SECONDS = 10
+settle()
 stub()
 
 # ---------------------------------------------------------------------------
@@ -331,6 +342,133 @@ with env(VERCEL="1", CANETRUST_ALLOW_OPEN="1"):
     check(classic().status_code == 200, "CANETRUST_ALLOW_OPEN lets a code-less deployment run (explicit opt-in)")
     check(client.get("/api/health").json()["open_access_allowed"] is True, "health reports that open access is on")
 check(client.get("/api/health").json()["open_access_allowed"] is False, "open access is off by default")
+
+# ---------------------------------------------------------------------------
+# 2c. The two-step flow: /api/triage, then /api/annotate with a confirmed plan
+# ---------------------------------------------------------------------------
+ALL = ["00_marlowe_trust_original.pdf", *AMENDMENT_FILES]
+settle()
+
+
+def triage_post(names=ALL, extra=None, data=None, headers=None):
+    files = [("files", (n, pdf(n), "application/pdf")) for n in names] + list(extra or [])
+    return client.post("/api/triage", files=files, data=data or {}, headers=headers or {})
+
+
+def annotate_json(body, headers=None):
+    return client.post("/api/annotate", json=body, headers=headers or {})
+
+
+stub()
+r = triage_post(list(reversed(ALL)))
+ev = events(r)
+check(r.status_code == 200 and r.headers["content-type"].startswith("application/x-ndjson"), "triage streams NDJSON")
+check(ev[0] == {"type": "progress", "message": "Files accepted."} and ev[-1]["type"] == "triaged", "triage: accepted ... triaged")
+TRIAGED = ev[-1]
+plan_json, pages_json = TRIAGED["plan"], TRIAGED["pages"]
+check(plan_json["version"] == 1 and len(plan_json["documents"]) == 5 and [f["file_id"] for f in plan_json["files"]] == list(reversed(ALL)),
+      "the plan lists files in upload order and every document")
+check(set(pages_json) == set(ALL) and len(pages_json[ALL[0]]) == 2 and "UNIVERSITY OF MIAMI" in pages_json[ALL[0]][0],
+      "the page texts come back for the browser to hold")
+check(TRIAGED["skip_confirm"] is False, "five documents: the confirm screen is not skipped")
+check(len(STUB.calls("record_triage")) == 1 and not STUB.calls("analyze_documents"), "triage makes no annotation call")
+one = events(triage_post([ALL[0]]))[-1]
+check(one["skip_confirm"] is True, "one confident, unflagged document: the confirm screen may be skipped")
+check(events(triage_post([ALL[0]], data={"doc_name": "My Matter"}))[-1]["plan"]["name"] == "My Matter", "doc_name names the matter")
+
+calls_before = len(STUB.requests)
+r = triage_post([], extra=[("files", ("scan.pdf", blank_pdf(2), "application/pdf"))])
+check(r.status_code == 422 and r.json()["code"] == "no_text_layer" and "scan.pdf" in r.json()["error"],
+      "triage: a scan is refused before streaming, by name")
+r = triage_post([], extra=[("files", ("notes.docx", b"PK\x03\x04", "application/octet-stream"))])
+check(r.status_code == 415, "triage: an unsupported type -> 415")
+check(client.post("/api/triage", data={}).status_code == 422, "triage: no files -> 422")
+with env(CANETRUST_MAX_UPLOAD_MB="0.001"):
+    r = triage_post()
+    check(r.status_code == 413 and r.json()["code"] == "too_large" and "MB limit" in r.json()["error"], "triage: over the upload limit -> 413")
+with env(CANETRUST_MAX_STATE_MB="0.001"):
+    r = triage_post()
+    check(r.status_code == 413 and r.json()["code"] == "state_too_large" and "browser can keep" in r.json()["error"],
+          "triage: more page text than the browser may hold -> 413 with a clear message")
+check(len(STUB.requests) == calls_before, "no model call for a refused triage request")
+with env(CANETRUST_ACCESS_CODE="sesame"):
+    check(triage_post().status_code == 401, "triage: the access code is enforced")
+    check(triage_post(data={"access_code": "sesame"}).status_code == 200, "triage: the right code is accepted")
+with env(VERCEL="1"):
+    check(triage_post().status_code == 503, "triage: a deployment with no code refuses to run open")
+stub({"record_triage": anthropic.RateLimitError("slow", response=httpx.Response(429, request=request), body=None)})
+with contextlib.redirect_stderr(io.StringIO()):
+    ev = events(triage_post())
+check(ev[-1]["type"] == "error" and ev[-1]["code"] == "rate_limited", "triage: a model failure ends the stream with an error event")
+api_index.HEARTBEAT_SECONDS = 0.1
+stub(pause=0.35)
+ev = events(triage_post([ALL[0]]))
+check(any(e["type"] == "heartbeat" for e in ev) and ev[-1]["type"] == "triaged", "triage: heartbeats while the model works")
+api_index.HEARTBEAT_SECONDS = 10
+
+# -- annotate a confirmed plan
+stub()
+confirmed = json.loads(json.dumps(plan_json))
+by_file = {d["file_id"]: d for d in confirmed["documents"]}
+by_file[ALL[4]]["excluded"] = True
+by_file[ALL[4]]["note"] = "excluded on review"
+confirmed["edits"] = [{"document": by_file[ALL[4]]["id"], "field": "excluded", "from": "false", "to": "true"}]
+for d in confirmed["documents"]:
+    d["labels"] = [{"sheet": 1, "label": "999", "source": "printed"}]     # the client cannot set labels
+r = annotate_json({"plan": confirmed, "pages": pages_json})
+ev = events(r)
+check(r.status_code == 200 and ev[0] == {"type": "progress", "message": "Plan accepted."} and ev[-1]["type"] == "done",
+      "annotate: plan accepted ... done")
+msg = STUB.calls("analyze_documents")[0]["messages"][0]["content"]
+check("[Page 1]" in msg and "[Page 999]" not in msg, "labels are recomputed on the server, never taken from the client")
+check("04 marlowe fourth" not in msg.split("Instruments in this chain")[1].split("\n\n")[0],
+      "an excluded document is not annotated")
+wb = load_workbook(io.BytesIO(base64.b64decode(ev[-1]["xlsx_base64"])))
+pm_values = [c.value for row in wb[PACKET_MAP_SHEET].iter_rows() for c in row if c.value]
+check("excluded" in pm_values and "excluded on review" in " ".join(map(str, pm_values)),
+      "the packet map shows the exclusion and the reviewer's note")
+check(any(str(v).startswith("Corrected on the confirm screen:") for v in pm_values),
+      "confirm-screen corrections are kept in the workbook as an audit record")
+
+bad = json.loads(json.dumps(plan_json))
+next(d for d in bad["documents"] if d["file_id"] == ALL[0])["last_sheet"] = 1
+r = annotate_json({"plan": bad, "pages": pages_json})
+check(r.status_code == 422 and r.json()["code"] == "invalid_plan" and any("in no document" in p for p in r.json()["problems"]),
+      "annotate: a plan that leaves a sheet uncovered is refused, with the problems listed")
+bad = json.loads(json.dumps(plan_json))
+bad["documents"][0]["treatment"] = "shred"
+check(annotate_json({"plan": bad, "pages": pages_json}).status_code == 422, "annotate: an unknown treatment is refused")
+fewer = dict(pages_json)
+fewer[ALL[0]] = pages_json[ALL[0]][:1]
+r = annotate_json({"plan": plan_json, "pages": fewer})
+check(r.status_code == 422 and any("sheets must be whole numbers within 1-1" in p for p in r.json()["problems"]),
+      "annotate: ranges are checked against the pages actually sent")
+check(annotate_json({"plan": plan_json, "pages": "x"}).json()["code"] == "bad_pages", "annotate: pages must be a map")
+r = client.post("/api/annotate", content=b"{not json", headers={"content-type": "application/json"})
+check(r.status_code == 400 and r.json()["code"] == "bad_request", "annotate: malformed JSON -> 400")
+with env(CANETRUST_MAX_STATE_MB="0.001"):
+    r = annotate_json({"plan": plan_json, "pages": pages_json})
+    check(r.status_code == 413 and r.json()["code"] == "state_too_large", "annotate: state over the cap is refused")
+with env(CANETRUST_ACCESS_CODE="sesame"):
+    check(annotate_json({"plan": plan_json, "pages": pages_json}).status_code == 401, "annotate: the access code is enforced")
+    ev = events(annotate_json({"plan": plan_json, "pages": pages_json, "access_code": "sesame"}))
+    check(ev[-1]["type"] == "done", "annotate: the code in the JSON body is accepted")
+
+many_pages = {f"a{i}.txt": [f"Amendment {i} text, signed January {i}, 2001."] for i in range(1, 11)}
+many_plan = {"version": 1, "name": "Many", "files": [{"file_id": f, "filename": f} for f in many_pages], "documents": [
+    {"id": f"d{i}", "file_id": f"a{i}.txt", "first_sheet": 1, "last_sheet": 1,
+     "doc_type": "trust" if i == 1 else "amendment", "treatment": "annotate", "principal": "P",
+     "date": f"2001-01-{i:02d}"} for i in range(1, 11)]}
+r = annotate_json({"plan": many_plan, "pages": many_pages})
+check(r.status_code == 422 and any("room for 8" in p for p in r.json()["problems"]),
+      "annotate: a chain with more amendments than the workbook holds is refused before any call")
+
+stub({"analyze_documents": anthropic.RateLimitError("slow", response=httpx.Response(429, request=request), body=None)})
+with contextlib.redirect_stderr(io.StringIO()):
+    ev = events(annotate_json({"plan": plan_json, "pages": pages_json}))
+check(ev[-1]["type"] == "error" and ev[-1]["code"] == "rate_limited", "annotate: a model failure ends with an error event")
+stub()
+check(client.get("/api/health").json()["max_state_mb"] == 3.0, "health reports the state cap")
 
 # -- nothing is written to the working directory by a run
 before = set(Path(".").rglob("*.xlsx"))

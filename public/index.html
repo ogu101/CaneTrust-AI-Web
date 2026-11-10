@@ -8,12 +8,16 @@
   :root {
     --um-green: #005030;
     --um-green-dark: #003d25;
+    --um-green-tint: #f1f8f4;
     --um-orange: #f47321;
     --um-orange-dark: #d85f12;
+    --um-orange-tint: #fff4ec;
     --ink: #1a1a1a;
     --muted: #5f6b66;
     --line: #dfe5e2;
     --bg: #f4f7f5;
+    --card: #fff;
+    --field: #fbfdfc;
     --err: #b3261e;
   }
   * { box-sizing: border-box; }
@@ -33,122 +37,170 @@
   }
   header h1 { margin: 0; font-size: 2rem; letter-spacing: .5px; }
   header h1 span { color: var(--um-orange); }
-  header p { margin: 10px auto 0; max-width: 460px; color: #cfe3d8; line-height: 1.5; }
+  header p { margin: 10px auto 0; max-width: 520px; color: #cfe3d8; line-height: 1.5; }
 
-  main { max-width: 520px; margin: -40px auto 48px; padding: 0 16px; }
+  main { max-width: 560px; margin: -40px auto 48px; padding: 0 16px; transition: max-width .2s; }
+  main.wide { max-width: 1000px; }
   .card {
-    background: #fff;
+    background: var(--card);
     border-radius: 14px;
     padding: 28px;
     box-shadow: 0 10px 30px rgba(0, 48, 30, .12);
     border: 1px solid var(--line);
   }
+  h2 { margin: 0 0 6px; font-size: 1.15rem; color: var(--um-green); }
+  h3 { margin: 22px 0 8px; font-size: .95rem; color: var(--um-green); }
   label, .section-title { display: block; margin: 18px 0 6px; font-weight: 600; font-size: .85rem; color: var(--um-green); }
-  label:first-of-type { margin-top: 0; }
   .opt { font-weight: 400; color: var(--muted); }
   .hint { margin: 0 0 4px; font-size: .85rem; line-height: 1.45; color: var(--muted); }
 
-  input[type="text"], input[type="password"], input[type="number"] {
-    width: 100%; padding: 10px 12px; font-size: 1rem;
-    border: 1px solid var(--line); border-radius: 8px; background: #fbfdfc;
+  input[type="text"], input[type="password"], input[type="date"], input[type="number"], select {
+    width: 100%; padding: 9px 11px; font: inherit; font-size: .95rem;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--ink);
     transition: border-color .15s, box-shadow .15s;
   }
-  input:focus, button:focus-visible {
+  input:focus, select:focus, button:focus-visible, .drop:focus-within {
     outline: none; border-color: var(--um-orange);
     box-shadow: 0 0 0 3px rgba(244, 115, 33, .2);
   }
-  input[type="file"] {
-    width: 100%; padding: 18px 12px; font-size: .95rem;
-    border: 2px dashed var(--um-green); border-radius: 10px;
-    background: #f1f8f4; color: var(--muted); cursor: pointer;
-  }
-  input[type="file"]::file-selector-button {
-    margin-right: 12px; padding: 8px 14px; border: 0; border-radius: 6px;
-    background: var(--um-green); color: #fff; font-weight: 600; cursor: pointer;
-  }
-  input[type="file"]::file-selector-button:hover { background: var(--um-green-dark); }
 
-  .section { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
-  .section .section-title { margin-top: 0; }
-  .amd-row { margin: 12px 0 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fbfdfc; }
-  .amd-row input[type="file"] { padding: 12px; background: #f1f8f4; }
-  .amd-grid { display: grid; grid-template-columns: 84px 1fr; gap: 0 12px; }
-  .amd-row label { margin: 12px 0 6px; }
-  .amd-row label:first-of-type { margin-top: 0; }
+  .drop {
+    display: block; margin: 0; padding: 26px 16px; text-align: center; cursor: pointer;
+    border: 2px dashed var(--um-green); border-radius: 12px; background: var(--um-green-tint);
+    color: var(--muted); font-weight: 400; font-size: .95rem; line-height: 1.5;
+  }
+  .drop strong { color: var(--um-green); }
+  .drop.over { background: var(--um-orange-tint); border-color: var(--um-orange); }
+  .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+  #file-list { list-style: none; margin: 12px 0 0; padding: 0; }
+  #file-list li {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-top: 6px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--field); font-size: .9rem;
+  }
+  #file-list .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  #file-list .size { color: var(--muted); white-space: nowrap; }
+
+  .section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
 
   button { font: inherit; cursor: pointer; }
   button.secondary {
-    margin-top: 14px; padding: 9px 14px; border-radius: 8px; font-weight: 600; font-size: .92rem;
+    padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: .9rem;
     border: 2px solid var(--um-green); background: #fff; color: var(--um-green);
-    transition: background .15s;
   }
-  button.secondary:hover:not(:disabled) { background: #f1f8f4; }
+  button.secondary:hover:not(:disabled) { background: var(--um-green-tint); }
   button.secondary:disabled { opacity: .5; cursor: not-allowed; }
-  button.remove { margin-top: 10px; padding: 0; border: 0; background: none; color: var(--muted); font-size: .85rem; text-decoration: underline; }
-  button.remove:hover { color: var(--err); }
-
-  button[type="submit"] {
-    width: 100%; margin-top: 24px; padding: 13px 18px;
+  button.link { padding: 0; border: 0; background: none; color: var(--muted); font-size: .85rem; text-decoration: underline; }
+  button.link:hover { color: var(--err); }
+  button.primary {
+    width: 100%; margin-top: 22px; padding: 13px 18px;
     background: var(--um-orange); color: #fff; font-size: 1rem; font-weight: 700;
     border: 0; border-radius: 8px;
-    transition: background .15s, transform .05s;
   }
-  button[type="submit"]:hover { background: var(--um-orange-dark); }
-  button[type="submit"]:active { transform: translateY(1px); }
-  button[type="submit"]:disabled { opacity: .55; cursor: wait; }
+  button.primary:hover:not(:disabled) { background: var(--um-orange-dark); }
+  button.primary:disabled { opacity: .55; cursor: not-allowed; }
 
-  #size { margin: 20px 0 0; font-size: .85rem; color: var(--muted); text-align: center; }
+  #size { margin: 18px 0 0; font-size: .85rem; color: var(--muted); text-align: center; }
   #size.over { color: var(--err); font-weight: 600; }
+
+  .summary { margin: 4px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--um-green-tint);
+             color: var(--um-green); font-weight: 600; font-size: .92rem; }
+  .files-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .files-table td { padding: 5px 6px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+  .files-table td:last-child { white-space: nowrap; color: var(--muted); text-align: right; }
+
+  .notice { margin-top: 14px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--um-orange);
+            background: var(--um-orange-tint); font-size: .9rem; line-height: 1.45; }
+  .notice label { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0 0; color: var(--ink); font-weight: 600; }
+
+  .doc { margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--field); }
+  .doc.attention { border-color: var(--um-orange); border-left-width: 5px; }
+  .doc.excluded { opacity: .6; }
+  .doc-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+  .doc-id { font-weight: 700; color: var(--um-green); }
+  .doc-where { color: var(--muted); font-size: .85rem; overflow-wrap: anywhere; }
+  .doc-title { flex-basis: 100%; font-size: .92rem; overflow-wrap: anywhere; }
+  .flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .flag { padding: 2px 8px; border-radius: 999px; background: var(--um-orange-tint); color: var(--um-orange-dark);
+          border: 1px solid #f7c39f; font-size: .78rem; font-weight: 600; }
+  .doc-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 12px; }
+  .doc-grid label { margin: 12px 0 4px; font-size: .78rem; }
+  .doc-grid .wide { grid-column: span 2; }
+  .doc-tools { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-top: 12px; font-size: .88rem; }
+  .doc-tools label { display: inline-flex; gap: 6px; align-items: center; margin: 0; color: var(--ink); font-weight: 400; font-size: .88rem; }
+  .split { display: inline-flex; gap: 6px; align-items: center; }
+  .split input { width: 84px; padding: 6px 8px; }
+  .split button, .doc-tools > button { padding: 5px 10px; font-size: .85rem; }
+
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 22px; }
+  .actions .primary { width: auto; flex: 1; margin-top: 0; }
 
   #progress { margin-top: 16px; font-size: .9rem; color: var(--muted); }
   #steps { margin: 0; padding-left: 20px; line-height: 1.6; }
   #live { margin-top: 6px; text-align: center; color: var(--um-green); font-weight: 600; }
-  #error { margin-top: 16px; font-size: .92rem; text-align: center; color: var(--err); }
+  #error { margin-top: 16px; font-size: .92rem; text-align: center; color: var(--err); white-space: pre-line; }
   #error:focus { outline: none; }
-  #result { margin-top: 16px; font-size: .92rem; text-align: center; color: var(--um-green); font-weight: 600; }
-  #result a { color: var(--um-green); }
-  #warnings { margin: 10px 0 0; padding-left: 20px; text-align: left; font-weight: 400; color: var(--um-orange-dark); }
+  #result { margin-top: 16px; font-size: .92rem; color: var(--um-green); }
+  #result a { color: var(--um-green); font-weight: 700; }
+  #result-summary { margin: 8px 0 0; padding-left: 20px; color: var(--ink); line-height: 1.6; }
+  #warnings { margin: 10px 0 0; padding-left: 20px; color: var(--um-orange-dark); }
   [hidden] { display: none !important; }
 
   footer { text-align: center; color: var(--muted); font-size: .8rem; padding-bottom: 32px; }
+
+  @media (max-width: 720px) {
+    .card { padding: 20px 16px; }
+    .doc-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  }
 </style>
 </head>
 <body>
   <header>
     <h1>Cane<span>Trust</span> AI</h1>
-    <p>Upload a trust and any amendments. You'll get a filled annotation spreadsheet to review.</p>
+    <p>Upload every document for one matter: a trust and its amendments, a will and codicils, notices, letters. Check how they were sorted, then get one annotation spreadsheet to review.</p>
   </header>
 
-  <main>
+  <main id="main">
     <div class="card">
+      <!-- Step 1: upload -->
       <form id="form" novalidate>
-        <label for="trust">Trust document (text-based PDF or .txt)</label>
-        <input id="trust" type="file" accept=".pdf,.txt,application/pdf,text/plain">
-
-        <label for="trust-label">Document label <span class="opt">optional</span></label>
-        <input id="trust-label" type="text" placeholder="e.g. Marlowe Family Living Trust (1998)">
-
-        <div class="section">
-          <div class="section-title">Amendments <span class="opt">optional</span></div>
-          <p class="hint">Leave this empty if the trust has no amendments. Otherwise add each amendment with its number (1 for the First Amendment). The order you add them in does not matter.</p>
-          <div id="amendments"></div>
-          <button type="button" id="add" class="secondary">+ Add an amendment</button>
-        </div>
+        <label class="drop" id="drop" for="files">
+          <input id="files" type="file" multiple accept=".pdf,.txt,application/pdf,text/plain">
+          <strong>Drop files here</strong> or click to choose.<br>
+          Text-based PDFs or .txt files, in any order: one packet or many files.
+        </label>
+        <ul id="file-list"></ul>
 
         <div class="section">
-          <label for="doc-name">Workbook name <span class="opt">optional</span></label>
-          <input id="doc-name" type="text" placeholder="Defaults to the trust file's name">
-
-          <label for="legal-status">Legal status <span class="opt">single document only</span></label>
-          <input id="legal-status" type="text" value="OPERATIVE">
+          <label for="doc-name">Matter name <span class="opt">optional</span></label>
+          <input id="doc-name" type="text" placeholder="Defaults to the first file's name">
 
           <label for="code">Access code</label>
           <input id="code" type="password" autocomplete="off">
         </div>
 
         <p id="size"></p>
-        <button type="submit" id="go">Generate annotation</button>
+        <button type="submit" id="go" class="primary">Read the documents</button>
       </form>
+
+      <!-- Step 2: confirm -->
+      <section id="confirm" hidden>
+        <h2>Check the documents</h2>
+        <p class="hint">Each file was read and split into documents. Change anything that is wrong, then annotate. Documents that need a decision are listed first.</p>
+        <p class="summary" id="summary" aria-live="polite"></p>
+        <div id="matters" class="notice" hidden>
+          These files may belong to more than one matter (different people are named).
+          <label><input type="checkbox" id="one-matter"> I have checked: annotate these documents together.</label>
+        </div>
+        <h3>Files</h3>
+        <table class="files-table"><tbody id="file-rows"></tbody></table>
+        <h3>Documents</h3>
+        <div id="docs"></div>
+        <div class="actions">
+          <button type="button" id="restart" class="secondary">Start over</button>
+          <button type="button" id="annotate" class="primary">Annotate</button>
+        </div>
+      </section>
 
       <div id="progress" aria-live="polite" hidden>
         <ol id="steps"></ol>
@@ -157,7 +209,9 @@
       <div id="error" role="alert" tabindex="-1" hidden></div>
       <div id="result" hidden>
         <a id="download" href="#">Download the workbook</a>
+        <ul id="result-summary"></ul>
         <ul id="warnings"></ul>
+        <button type="button" id="again" class="secondary">Annotate another matter</button>
       </div>
     </div>
   </main>
@@ -166,15 +220,33 @@
 
 <script>
 (function () {
-  var MAX_AMENDMENTS = 8;
-  var limitMB = 4.0;
-  var objectUrl = null;
+  var TYPES = [
+    ['restated_trust', 'Restated trust'], ['trust', 'Trust'], ['amendment', 'Trust amendment'],
+    ['will', 'Will'], ['codicil', 'Codicil'], ['other_dispositive', 'Other gift instrument'],
+    ['accounting', 'Accounting'], ['receipt_of_notice', 'Receipt of notice'], ['letter', 'Letter'],
+    ['letters_of_administration', 'Letters of administration'],
+    ['notice_of_administration', 'Notice of administration'], ['notice_to_creditors', 'Notice to creditors'],
+    ['other_administrative', 'Other administrative'], ['unknown', 'Unknown']];
+  var TREATMENTS = [['annotate', 'Annotate'], ['facts_only', 'Facts only'], ['log_only', 'Log only']];
+  var TYPE_LABEL = {}; TYPES.forEach(function (t) { TYPE_LABEL[t[0]] = t[1]; });
+  var TREATMENT_LABEL = { annotate: 'annotate', facts_only: 'facts only', log_only: 'log only' };
+  var FLAG_TEXT = {
+    unassigned: 'no document claimed these sheets', date_unreadable: 'date unreadable',
+    treatment_overridden: 'treatment set by the defaults table', possible_gift_in_non_annotated_document:
+    'may contain a gift to the University', footer_id_disagrees_with_boundary: 'boundary may be wrong',
+    type_unknown: 'type unknown', low_confidence: 'low confidence'};
+
+  var limitMB = 4.0, objectUrl = null;
+  var chosen = [];                  // File objects, in the order chosen
+  var state = null;                 // {plan, pages, original} between the two steps
 
   var $ = function (id) { return document.getElementById(id); };
-  var form = $('form'), amendmentsEl = $('amendments'), addBtn = $('add'), goBtn = $('go');
+  var form = $('form'), filesInput = $('files'), drop = $('drop'), fileList = $('file-list');
+  var goBtn = $('go'), sizeEl = $('size'), codeEl = $('code');
+  var confirmEl = $('confirm'), docsEl = $('docs'), summaryEl = $('summary'), annotateBtn = $('annotate');
   var progressEl = $('progress'), stepsEl = $('steps'), liveEl = $('live');
-  var errorEl = $('error'), resultEl = $('result'), downloadEl = $('download'), warningsEl = $('warnings');
-  var sizeEl = $('size'), codeEl = $('code');
+  var errorEl = $('error'), resultEl = $('result'), downloadEl = $('download');
+  var warningsEl = $('warnings'), resultSummaryEl = $('result-summary');
 
   try { codeEl.value = sessionStorage.getItem('canetrust-code') || ''; } catch (e) {}
 
@@ -182,153 +254,92 @@
     if (h && h.max_upload_mb) { limitMB = h.max_upload_mb; updateSize(); }
   }).catch(function () {});
 
-  function selectedFiles() {
-    var files = [];
-    var t = $('trust').files && $('trust').files[0];
-    if (t) files.push(t);
-    amendmentsEl.querySelectorAll('.amd-file').forEach(function (input) {
-      if (input.files && input.files[0]) files.push(input.files[0]);
-    });
-    return files;
-  }
-
+  // ------------------------------------------------------------------ step 1: files
   function mb(bytes) { return (bytes / 1048576).toFixed(1); }
 
   function updateSize() {
-    var total = selectedFiles().reduce(function (sum, f) { return sum + f.size; }, 0);
+    var total = chosen.reduce(function (sum, f) { return sum + f.size; }, 0);
     var over = total > limitMB * 1048576;
     sizeEl.textContent = 'Total size: ' + mb(total) + ' MB of ' + limitMB.toFixed(1) + ' MB allowed';
     sizeEl.className = over ? 'over' : '';
     return over;
   }
 
-  function nextNumber() {
-    var used = {};
-    amendmentsEl.querySelectorAll('.amd-number').forEach(function (i) { used[parseInt(i.value, 10)] = true; });
-    var n = 1;
-    while (used[n]) n++;
-    return n;
+  function renderFiles() {
+    fileList.textContent = '';
+    chosen.forEach(function (f, i) {
+      var li = document.createElement('li');
+      var name = document.createElement('span'); name.className = 'name'; name.textContent = f.name;
+      var size = document.createElement('span'); size.className = 'size'; size.textContent = mb(f.size) + ' MB';
+      var remove = document.createElement('button');
+      remove.type = 'button'; remove.className = 'link remove'; remove.textContent = 'Remove';
+      remove.setAttribute('aria-label', 'Remove ' + f.name);
+      remove.addEventListener('click', function () { chosen.splice(i, 1); renderFiles(); });
+      li.appendChild(name); li.appendChild(size); li.appendChild(remove);
+      fileList.appendChild(li);
+    });
+    updateSize();
   }
 
-  function field(labelText, input) {
-    var label = document.createElement('label');
-    label.textContent = labelText;
-    input.id = input.id || 'f' + Math.random().toString(36).slice(2);
-    label.htmlFor = input.id;
-    return [label, input];
-  }
-
-  function addRow() {
-    if (amendmentsEl.children.length >= MAX_AMENDMENTS) return;
-    var row = document.createElement('div');
-    row.className = 'amd-row';
-
-    var file = document.createElement('input');
-    file.type = 'file'; file.className = 'amd-file'; file.accept = '.pdf,.txt,application/pdf,text/plain';
-    file.addEventListener('change', updateSize);
-
-    var number = document.createElement('input');
-    number.type = 'number'; number.className = 'amd-number'; number.min = '1'; number.max = '99'; number.step = '1';
-    number.value = String(nextNumber());
-
-    var label = document.createElement('input');
-    label.type = 'text'; label.className = 'amd-label'; label.placeholder = 'e.g. First Amendment (2004)';
-
-    var remove = document.createElement('button');
-    remove.type = 'button'; remove.className = 'remove'; remove.textContent = 'Remove this amendment';
-    remove.addEventListener('click', function () { row.remove(); addBtn.disabled = false; updateSize(); });
-
-    var fileField = field('Amendment file (text-based PDF or .txt)', file);
-    row.appendChild(fileField[0]); row.appendChild(fileField[1]);
-
-    var grid = document.createElement('div');
-    grid.className = 'amd-grid';
-    var numField = field('Number', number), labelField = field('Label (optional)', label);
-    var numWrap = document.createElement('div'), labelWrap = document.createElement('div');
-    numField.forEach(function (n) { numWrap.appendChild(n); });
-    labelField.forEach(function (n) { labelWrap.appendChild(n); });
-    grid.appendChild(numWrap); grid.appendChild(labelWrap);
-    row.appendChild(grid);
-    row.appendChild(remove);
-
-    amendmentsEl.appendChild(row);
-    addBtn.disabled = amendmentsEl.children.length >= MAX_AMENDMENTS;
-  }
-
-  addBtn.addEventListener('click', addRow);
-  $('trust').addEventListener('change', updateSize);
-
-  function showError(message) {
-    errorEl.textContent = message;
-    errorEl.hidden = false;
-    errorEl.focus();
-  }
-
-  function reset() {
-    errorEl.hidden = true; errorEl.textContent = '';
-    resultEl.hidden = true; warningsEl.textContent = '';
-    stepsEl.textContent = ''; liveEl.textContent = '';
-    progressEl.hidden = true;
-    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
-  }
-
-  function validate() {
-    var trust = $('trust').files && $('trust').files[0];
-    if (!trust) return 'Choose the trust document.';
-
-    var seen = {}, rows = amendmentsEl.querySelectorAll('.amd-row');
-    for (var i = 0; i < rows.length; i++) {
-      var file = rows[i].querySelector('.amd-file').files[0];
-      var raw = rows[i].querySelector('.amd-number').value.trim();
-      var n = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
-      if (!file) return 'Amendment ' + (i + 1) + ' has no file. Choose one, or remove the row.';
-      if (!(n >= 1)) return 'Give amendment ' + (i + 1) + ' a number of 1 or higher.';
-      if (seen[n]) return 'Two amendments are numbered ' + n + '. Each number can be used once.';
-      seen[n] = true;
+  function addFiles(list) {
+    for (var i = 0; i < list.length; i++) {
+      var f = list[i];
+      if (!chosen.some(function (c) { return c.name === f.name && c.size === f.size; })) chosen.push(f);
     }
-    var bad = selectedFiles().filter(function (f) { return !/\.(pdf|txt)$/i.test(f.name); });
+    renderFiles();
+  }
+
+  filesInput.addEventListener('change', function () { addFiles(filesInput.files || []); try { filesInput.value = ''; } catch (e) {} });
+  ['dragenter', 'dragover'].forEach(function (t) {
+    drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (t) {
+    drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (e) { if (e.dataTransfer) addFiles(e.dataTransfer.files || []); });
+
+  function validateFiles() {
+    if (!chosen.length) return 'Choose at least one file.';
+    var bad = chosen.filter(function (f) { return !/\.(pdf|txt)$/i.test(f.name); });
     if (bad.length) return bad[0].name + ' is not a PDF or .txt file.';
     if (updateSize()) return 'The files are over the ' + limitMB.toFixed(1) + ' MB limit for one upload. Send fewer or smaller files.';
     return null;
   }
 
+  // ------------------------------------------------------------------ shared: messages and streams
+  function showError(message) { errorEl.textContent = message; errorEl.hidden = false; errorEl.focus(); }
+
+  function clearMessages() {
+    errorEl.hidden = true; errorEl.textContent = '';
+    resultEl.hidden = true; warningsEl.textContent = ''; resultSummaryEl.textContent = '';
+    stepsEl.textContent = ''; liveEl.textContent = ''; progressEl.hidden = true;
+    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+  }
+
   function addStep(message) {
-    var li = document.createElement('li');
-    li.textContent = message;
-    stepsEl.appendChild(li);
+    var li = document.createElement('li'); li.textContent = message; stepsEl.appendChild(li);
   }
 
-  function base64ToBytes(b64) {
-    var binary = atob(b64), bytes = new Uint8Array(binary.length);
-    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
+  async function errorFrom(response) {
+    var message = 'The server returned an error (' + response.status + ').', body = null;
+    try { body = await response.json(); message = body.error || message; } catch (err) {}
+    if (response.status === 413 && message.indexOf('The server returned') === 0) {
+      message = 'The files are too large for one upload. Send fewer or smaller files.';
+    }
+    if (body && body.problems && body.problems.length) message = 'The document map has problems:\n' + body.problems.join('\n');
+    return message;
   }
 
-  function finish(event) {
-    var blob = new Blob([base64ToBytes(event.xlsx_base64)],
-      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    objectUrl = URL.createObjectURL(blob);
-    downloadEl.href = objectUrl;
-    downloadEl.setAttribute('download', event.filename);
-    downloadEl.textContent = 'Done. Download ' + event.filename;
-    (event.warnings || []).forEach(function (w) {
-      var li = document.createElement('li'); li.textContent = w; warningsEl.appendChild(li);
-    });
-    liveEl.textContent = '';
-    resultEl.hidden = false;
-    downloadEl.click();
-  }
-
-  function handleEvent(event, state) {
-    if (event.type === 'progress') { addStep(event.message); liveEl.textContent = ''; }
-    else if (event.type === 'heartbeat') { liveEl.textContent = 'Still working (' + event.elapsed + ' seconds)...'; }
-    else if (event.type === 'done') { state.finished = true; finish(event); }
-    else if (event.type === 'error') { state.finished = true; liveEl.textContent = ''; showError(event.message); }
-  }
-
-  async function readStream(response) {
-    var state = { finished: false };
+  // Read an NDJSON stream; calls onResult(event) for the final 'triaged' or 'done' event.
+  async function readStream(response, onResult) {
+    var finished = false;
     var reader = response.body.getReader(), decoder = new TextDecoder(), buffer = '';
+    function handle(event) {
+      if (event.type === 'progress') { addStep(event.message); liveEl.textContent = ''; }
+      else if (event.type === 'heartbeat') { liveEl.textContent = 'Still working (' + event.elapsed + ' seconds)...'; }
+      else if (event.type === 'error') { finished = true; liveEl.textContent = ''; showError(event.message); }
+      else if (event.type === 'triaged' || event.type === 'done') { finished = true; liveEl.textContent = ''; onResult(event); }
+    }
     for (;;) {
       var chunk = await reader.read();
       if (chunk.done) break;
@@ -337,68 +348,278 @@
       while ((newline = buffer.indexOf('\n')) !== -1) {
         var line = buffer.slice(0, newline).trim();
         buffer = buffer.slice(newline + 1);
-        if (line) handleEvent(JSON.parse(line), state);
+        if (line) handle(JSON.parse(line));
       }
     }
-    if (buffer.trim()) handleEvent(JSON.parse(buffer.trim()), state);
-    if (!state.finished) {
+    if (buffer.trim()) handle(JSON.parse(buffer.trim()));
+    if (!finished) {
       liveEl.textContent = '';
-      showError('The connection closed before the workbook was ready. This usually means the server ' +
+      showError('The connection closed before the work was finished. This usually means the server ' +
         'reached its time limit. Try fewer or shorter documents.');
     }
   }
 
-  form.addEventListener('submit', async function (e) {
-    e.preventDefault();
-    reset();
-    var problem = validate();
-    if (problem) { showError(problem); return; }
-
-    var data = new FormData();
-    var trust = $('trust').files[0];
-    data.append('trust', trust, trust.name);
-    data.append('doc_name', $('doc-name').value);
-    data.append('trust_label', $('trust-label').value);
-    data.append('status', $('legal-status').value);
-    data.append('access_code', codeEl.value);
-    try { sessionStorage.setItem('canetrust-code', codeEl.value); } catch (err) {}
-
-    var meta = [];
-    amendmentsEl.querySelectorAll('.amd-row').forEach(function (row) {
-      var file = row.querySelector('.amd-file').files[0];
-      data.append('amendment_files', file, file.name);
-      meta.push({ number: parseInt(row.querySelector('.amd-number').value, 10),
-                  label: row.querySelector('.amd-label').value });
-    });
-    data.append('amendments_meta', JSON.stringify(meta));
-
-    goBtn.disabled = true; goBtn.setAttribute('aria-busy', 'true');
-    progressEl.hidden = false; addStep('Uploading ' + (1 + meta.length) + ' file(s).');
+  async function post(url, options, onResult) {
+    progressEl.hidden = false;
     try {
-      // Asking for NDJSON is what selects the streaming (progress) mode of the API.
-      var response = await fetch('/api/annotate', {
-        method: 'POST', body: data, headers: { 'Accept': 'application/x-ndjson' },
-      });
-      if (!response.ok) {
-        var message = 'The server returned an error (' + response.status + ').';
-        try { message = (await response.json()).error || message; } catch (err) {}
-        if (response.status === 413 && message.indexOf('The server returned') === 0) {
-          message = 'The files are too large for one upload. Send fewer or smaller files.';
-        }
-        progressEl.hidden = true;
-        showError(message);
-      } else {
-        await readStream(response);
-      }
+      var response = await fetch(url, options);
+      if (!response.ok) { progressEl.hidden = true; showError(await errorFrom(response)); return; }
+      await readStream(response, onResult);
     } catch (err) {
       progressEl.hidden = true;
       showError('Could not reach the server. Check your connection and try again.');
-    } finally {
-      goBtn.disabled = false; goBtn.removeAttribute('aria-busy');
     }
+  }
+
+  // ------------------------------------------------------------------ step 1 -> triage
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    clearMessages();
+    var problem = validateFiles();
+    if (problem) { showError(problem); return; }
+    var data = new FormData();
+    chosen.forEach(function (f) { data.append('files', f, f.name); });
+    data.append('doc_name', $('doc-name').value);
+    data.append('access_code', codeEl.value);
+    try { sessionStorage.setItem('canetrust-code', codeEl.value); } catch (err) {}
+    goBtn.disabled = true; goBtn.setAttribute('aria-busy', 'true');
+    addStep('Uploading ' + chosen.length + ' file(s).');
+    await post('/api/triage', { method: 'POST', body: data, headers: { 'Accept': 'application/x-ndjson' } }, onTriaged);
+    goBtn.disabled = false; goBtn.removeAttribute('aria-busy');
   });
 
-  updateSize();
+  function onTriaged(event) {
+    state = { plan: event.plan, pages: event.pages, original: JSON.parse(JSON.stringify(event.plan)) };
+    state.plan.edits = [];
+    if (event.skip_confirm) {
+      addStep('One document, read with confidence: no check needed.');
+      annotate();
+      return;
+    }
+    progressEl.hidden = true;
+    showConfirm();
+  }
+
+  // ------------------------------------------------------------------ step 2: the confirm screen
+  function docs() { return state.plan.documents; }
+  function fileName(id) { var f = state.plan.files.filter(function (x) { return x.file_id === id; })[0]; return f ? f.filename : id; }
+  function fileIndex(id) { for (var i = 0; i < state.plan.files.length; i++) if (state.plan.files[i].file_id === id) return i; return 0; }
+  function inFileOrder(list) {
+    return list.slice().sort(function (a, b) { return fileIndex(a.file_id) - fileIndex(b.file_id) || a.first_sheet - b.first_sheet; });
+  }
+  function sheetsText(d) { return d.first_sheet === d.last_sheet ? 'sheet ' + d.first_sheet : 'sheets ' + d.first_sheet + '-' + d.last_sheet; }
+
+  function needsDecision(d) {
+    return !d.excluded && ((d.flags && d.flags.length) || d.confidence === 'low' || d.doc_type === 'unknown' ||
+      (d.treatment === 'annotate' && !d.date));
+  }
+
+  function record(d, field, from, to) {
+    if (String(from) === String(to)) return;
+    state.plan.edits.push({ document: d.id, field: field, from: from == null ? '' : String(from), to: to == null ? '' : String(to) });
+  }
+
+  function select(options, value, cls) {
+    var s = document.createElement('select'); s.className = cls;
+    options.forEach(function (o) {
+      var opt = document.createElement('option'); opt.value = o[0]; opt.textContent = o[1];
+      if (o[0] === value) opt.selected = true;
+      s.appendChild(opt);
+    });
+    return s;
+  }
+
+  function labelled(text, input, wide) {
+    var wrap = document.createElement('div'); if (wide) wrap.className = 'wide';
+    var label = document.createElement('label');
+    input.id = input.id || 'c' + Math.random().toString(36).slice(2);
+    label.htmlFor = input.id; label.textContent = text;
+    wrap.appendChild(label); wrap.appendChild(input);
+    return wrap;
+  }
+
+  function updateSummary() {
+    var counts = { annotate: 0, facts_only: 0, log_only: 0 }, excluded = 0;
+    docs().forEach(function (d) { if (d.excluded) excluded++; else counts[d.treatment]++; });
+    var n = docs().length;
+    summaryEl.textContent = n + ' document' + (n === 1 ? '' : 's') + ': ' + counts.annotate + ' annotate, ' +
+      counts.facts_only + ' facts only, ' + counts.log_only + ' log only' + (excluded ? ', ' + excluded + ' excluded' : '') + '.';
+    var matters = (state.plan.flags || []).some(function (f) { return f.code === 'possible_multiple_matters'; });
+    $('matters').hidden = !matters;
+    annotateBtn.disabled = (matters && !$('one-matter').checked) || counts.annotate + counts.facts_only + counts.log_only === 0;
+  }
+
+  function renderDoc(d) {
+    var row = document.createElement('div');
+    row.className = 'doc' + (needsDecision(d) ? ' attention' : '') + (d.excluded ? ' excluded' : '');
+    row.setAttribute('data-id', d.id);
+
+    var head = document.createElement('div'); head.className = 'doc-head';
+    var id = document.createElement('span'); id.className = 'doc-id'; id.textContent = d.id;
+    var where = document.createElement('span'); where.className = 'doc-where'; where.textContent = fileName(d.file_id) + ', ' + sheetsText(d);
+    var title = document.createElement('span'); title.className = 'doc-title'; title.textContent = d.title && d.title !== 'unknown' ? d.title : '(no title found)';
+    head.appendChild(id); head.appendChild(where); head.appendChild(title);
+    row.appendChild(head);
+
+    var flags = (d.flags || []).map(function (f) { return FLAG_TEXT[f.code] || f.code.replace(/_/g, ' '); });
+    if (d.treatment === 'annotate' && !d.date) flags.push('no date: it cannot be placed in a chain');
+    if (flags.length) {
+      var box = document.createElement('div'); box.className = 'flags';
+      flags.forEach(function (t) { var s = document.createElement('span'); s.className = 'flag'; s.textContent = t; box.appendChild(s); });
+      row.appendChild(box);
+    }
+
+    var grid = document.createElement('div'); grid.className = 'doc-grid';
+    var type = select(TYPES, d.doc_type, 'doc-type');
+    type.addEventListener('change', function () { record(d, 'doc_type', d.doc_type, type.value); d.doc_type = type.value; render(); });
+    var date = document.createElement('input'); date.type = 'date'; date.className = 'doc-date'; date.value = d.date || '';
+    date.addEventListener('change', function () { var v = date.value || null; record(d, 'date', d.date, v); d.date = v; render(); });
+    var treatment = select(TREATMENTS, d.treatment, 'doc-treatment');
+    treatment.addEventListener('change', function () { record(d, 'treatment', d.treatment, treatment.value); d.treatment = treatment.value; render(); });
+    var others = docs().filter(function (x) { return x.id !== d.id && !x.excluded; }).map(function (x) {
+      return [x.id, x.id + ': ' + (TYPE_LABEL[x.doc_type] || x.doc_type) + (x.date ? ', ' + x.date : '')]; });
+    var amends = select([['', 'Its own chain (automatic)']].concat(others.map(function (o) { return [o[0], 'Amends ' + o[1]]; })), d.amends || '', 'doc-amends');
+    amends.addEventListener('change', function () { var v = amends.value || null; record(d, 'amends', d.amends, v); d.amends = v; render(); });
+    var note = document.createElement('input'); note.type = 'text'; note.className = 'doc-note'; note.value = d.note || ''; note.placeholder = 'Optional';
+    note.addEventListener('change', function () { record(d, 'note', d.note, note.value); d.note = note.value; });
+    grid.appendChild(labelled('Type', type)); grid.appendChild(labelled('Date', date));
+    grid.appendChild(labelled('Treatment', treatment)); grid.appendChild(labelled('Chain', amends));
+    grid.appendChild(labelled('Note', note, true));
+    row.appendChild(grid);
+
+    var tools = document.createElement('div'); tools.className = 'doc-tools';
+    var sup = document.createElement('input'); sup.type = 'checkbox'; sup.className = 'doc-superseded'; sup.checked = !!d.superseded;
+    sup.addEventListener('change', function () { record(d, 'superseded', !!d.superseded, sup.checked); d.superseded = sup.checked; render(); });
+    var supLabel = document.createElement('label'); supLabel.appendChild(sup); supLabel.appendChild(document.createTextNode('Superseded'));
+    var exc = document.createElement('input'); exc.type = 'checkbox'; exc.className = 'doc-excluded'; exc.checked = !!d.excluded;
+    exc.addEventListener('change', function () { record(d, 'excluded', !!d.excluded, exc.checked); d.excluded = exc.checked; render(); });
+    var excLabel = document.createElement('label'); excLabel.appendChild(exc); excLabel.appendChild(document.createTextNode('Exclude'));
+    tools.appendChild(supLabel); tools.appendChild(excLabel);
+
+    if (d.last_sheet > d.first_sheet) {
+      var split = document.createElement('span'); split.className = 'split';
+      var at = document.createElement('input'); at.type = 'number'; at.className = 'split-at';
+      at.min = String(d.first_sheet + 1); at.max = String(d.last_sheet); at.value = String(d.first_sheet + 1);
+      at.setAttribute('aria-label', 'Split ' + d.id + ' so a new document starts at this sheet');
+      var splitBtn = document.createElement('button'); splitBtn.type = 'button'; splitBtn.className = 'secondary split-btn'; splitBtn.textContent = 'Split at sheet';
+      splitBtn.addEventListener('click', function () { splitDoc(d, parseInt(at.value, 10)); });
+      split.appendChild(splitBtn); split.appendChild(at);
+      tools.appendChild(split);
+    }
+    var next = nextInFile(d);
+    if (next) {
+      var merge = document.createElement('button'); merge.type = 'button'; merge.className = 'secondary merge-btn';
+      merge.textContent = 'Merge with ' + next.id;
+      merge.addEventListener('click', function () { mergeDocs(d, next); });
+      tools.appendChild(merge);
+    }
+    row.appendChild(tools);
+    return row;
+  }
+
+  function nextInFile(d) {
+    return docs().filter(function (x) { return x.file_id === d.file_id && x.first_sheet === d.last_sheet + 1; })[0] || null;
+  }
+
+  function newId() {
+    var n = 0;
+    docs().forEach(function (d) { var m = /^d(\d+)$/.exec(d.id); if (m) n = Math.max(n, parseInt(m[1], 10)); });
+    return 'd' + (n + 1);
+  }
+
+  function splitDoc(d, at) {
+    if (!(at > d.first_sheet && at <= d.last_sheet)) { showError('Choose a sheet from ' + (d.first_sheet + 1) + ' to ' + d.last_sheet + ' to split ' + d.id + '.'); return; }
+    errorEl.hidden = true;
+    var copy = JSON.parse(JSON.stringify(d));
+    copy.id = newId(); copy.first_sheet = at; copy.date = null; copy.title = 'unknown'; copy.flags = [];
+    copy.refers_to = []; copy.revokes = []; copy.amends = null; copy.note = 'split from ' + d.id; copy.labels = [];
+    record(d, 'sheets', d.first_sheet + '-' + d.last_sheet, d.first_sheet + '-' + (at - 1) + ' and ' + copy.id + ' ' + at + '-' + d.last_sheet);
+    d.last_sheet = at - 1;
+    docs().push(copy);
+    state.plan.documents = inFileOrder(docs());
+    render();
+  }
+
+  function mergeDocs(d, next) {
+    record(d, 'sheets', d.first_sheet + '-' + d.last_sheet, d.first_sheet + '-' + next.last_sheet + ' (merged ' + next.id + ')');
+    d.last_sheet = next.last_sheet;
+    state.plan.documents = docs().filter(function (x) { return x !== next; });
+    docs().forEach(function (x) { if (x.amends === next.id) x.amends = d.id; });
+    render();
+  }
+
+  function render() {
+    docsEl.textContent = '';
+    var ordered = inFileOrder(docs());
+    ordered.filter(needsDecision).concat(ordered.filter(function (d) { return !needsDecision(d); }))
+      .forEach(function (d) { docsEl.appendChild(renderDoc(d)); });
+    updateSummary();
+  }
+
+  function showConfirm() {
+    form.hidden = true; confirmEl.hidden = false; $('main').classList.add('wide');
+    var rows = $('file-rows'); rows.textContent = '';
+    state.plan.files.forEach(function (f) {
+      var tr = document.createElement('tr');
+      var a = document.createElement('td'); a.textContent = f.filename;
+      var b = document.createElement('td'); b.textContent = f.sheets + ' sheet' + (f.sheets === 1 ? '' : 's');
+      tr.appendChild(a); tr.appendChild(b); rows.appendChild(tr);
+    });
+    $('one-matter').checked = false;
+    render();
+  }
+
+  $('one-matter').addEventListener('change', updateSummary);
+  $('restart').addEventListener('click', startOver);
+  $('again').addEventListener('click', startOver);
+
+  function startOver() {
+    clearMessages(); state = null;
+    confirmEl.hidden = true; form.hidden = false; $('main').classList.remove('wide');
+    chosen = []; renderFiles();
+  }
+
+  // ------------------------------------------------------------------ step 2 -> annotate
+  annotateBtn.addEventListener('click', function () { clearMessages(); annotate(); });
+
+  async function annotate() {
+    annotateBtn.disabled = true; goBtn.disabled = true;
+    var body = JSON.stringify({ plan: state.plan, pages: state.pages, access_code: codeEl.value });
+    await post('/api/annotate', { method: 'POST', body: body,
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/x-ndjson' } }, onDone);
+    goBtn.disabled = false;
+    if (state) updateSummary();
+  }
+
+  function base64ToBytes(b64) {
+    var binary = atob(b64), bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+
+  function onDone(event) {
+    var blob = new Blob([base64ToBytes(event.xlsx_base64)],
+      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    objectUrl = URL.createObjectURL(blob);
+    downloadEl.href = objectUrl;
+    downloadEl.setAttribute('download', event.filename);
+    downloadEl.textContent = 'Done. Download ' + event.filename;
+    var lines = [];
+    var counts = { annotate: 0, facts_only: 0, log_only: 0 }, excluded = 0;
+    docs().forEach(function (d) { if (d.excluded) excluded++; else counts[d.treatment]++; });
+    lines.push(docs().length + ' document(s): ' + counts.annotate + ' annotated, ' + counts.facts_only +
+      ' facts only, ' + counts.log_only + ' log only' + (excluded ? ', ' + excluded + ' excluded' : '') + '.');
+    (event.chains || []).forEach(function (c) {
+      lines.push('Sheet "' + c.sheet + '": ' + c.family + ' chain, base ' + c.base + ', amendments ' + c.amendments + ' (' + c.result + ')');
+    });
+    lines.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; resultSummaryEl.appendChild(li); });
+    (event.warnings || []).forEach(function (w) { var li = document.createElement('li'); li.textContent = w; warningsEl.appendChild(li); });
+    confirmEl.hidden = true; form.hidden = true;
+    resultEl.hidden = false;
+    downloadEl.click();
+  }
+
+  renderFiles();
 })();
 </script>
 </body>

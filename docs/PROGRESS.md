@@ -157,6 +157,37 @@ Checks deleted because their subject no longer exists:
   CANETRUST_MAX_CHARS. CANETRUST_MAX_TOKENS_ANNOTATE replaces SINGLE/MULTI (MULTI still read).
 - D3.12: a chain over 8 amendments is refused per chain (the workbook has 8 columns).
 
+## Phase 4: two-step API and confirm screen (done)
+
+- api/index.py rewritten: `POST /api/triage` (multipart files -> NDJSON, plan + page texts),
+  `POST /api/annotate` JSON (confirmed plan + page texts -> NDJSON, workbook), the legacy
+  multipart request kept on the one-shot path, `/api/health` reports `max_state_mb`. Handlers
+  are async and parse the body themselves, so one route serves JSON and multipart; blocking
+  work runs in a thread pool or the worker thread behind the stream.
+- service: `can_skip_confirm`, `state_bytes`, `page_texts`, `pages_from_texts`,
+  `confirmed_plan_problems`; plan `edits` (audit record) written to the packet map.
+- public/index.html rewritten: drop zone, confirm screen (UM style, phone-width layout),
+  skip path, result summary.
+- Suites: pages 97, gay 140 (+9 skipped), triage 113, chains 83, facts 40, annotate 47,
+  workbook 77, pipeline 64, web 123, UI 58.
+- UI test rewritten (old checks of the amendment-row form deleted: the form no longer exists;
+  their concerns, choosing files, validation, size limit, what is sent, streaming errors, access
+  code, scans, are re-tested against the drop zone).
+
+### Decisions
+
+- D4.1: the state cap counts UTF-8 bytes of page text; it is checked after triage (before
+  streaming) and again on annotate.
+- D4.2: the server refuses a confirmed plan whose chain has more than 8 amendments, before any
+  model call, so the person can exclude or supersede some.
+- D4.3: documents "needing a decision" = any triage flag, low confidence, type unknown, or
+  annotate with no date (it cannot be chained). They come first; the rest follow in file order.
+- D4.4: a split piece starts with no date and no title (the person fills them in); merging
+  re-points any "amends" that named the merged document.
+- D4.5: at most 40 files per request (MAX_FILES), an arbitrary guard against abuse.
+- D4.6: the legacy fields `amendments_meta` and `status` are accepted and ignored.
+
 ## Next
 
-Phase 4: two-step API (/api/triage, /api/annotate with a confirmed plan), confirm screen UI.
+Phase 5: tools/check_bundle.py, vercel.json, tools/e2e_local.py (one real run), docs/VERCEL_TEST.md,
+README deploy section, push, preview check.

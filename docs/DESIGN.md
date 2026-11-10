@@ -126,6 +126,8 @@ A person can change type, date, treatment, and chain; split or merge page ranges
 
 On confirm: recompute page labels if boundaries moved, rebuild chains, run annotation. Save the corrections with the job as an audit record.
 
+As built (milestone 7): the page (`public/index.html`) has one multi-file drop zone, then this screen. Documents needing a decision (flags, low confidence, unknown type, or an annotated document with no date) are listed first, then the rest, each group in file order. Each row edits type, date, treatment, chain (an "amends" choice), note, superseded and exclude, and can be split at a sheet or merged with the next document in its file. A live line counts documents by treatment. When triage flags possible multiple matters, annotation waits until the person ticks that the files belong together. Every edit is kept in `plan.edits` and written to the packet map ("Corrected on the confirm screen"). The screen is skipped only when there is exactly one document, with high confidence and no flags; the summary is shown after the workbook. Labels and chains are recomputed on the server; the client cannot set them.
+
 ## Workbook
 
 One workbook per matter: a sheet per annotated chain plus a "Packet map" sheet listing every document with pages, type, date, treatment, reason, and flags. A chain with no amendments hides the amendment and final-position columns. One template replaces the two current ones.
@@ -144,7 +146,8 @@ As built (milestone 6):
 
 - `POST /api/triage`: files in, plan JSON and page texts out (NDJSON progress stream).
 - `POST /api/annotate`: confirmed plan and page texts in, workbook out (NDJSON stream, workbook in the last event).
-- State between the two calls is held by the browser for now. Move to a private Blob store with a deletion rule when packets or scans outgrow the request limits.
+- State between the two calls is held by the browser for now, capped at 3 MB of page text (`CANETRUST_MAX_STATE_MB`); above it, both endpoints refuse with a clear message (413 `state_too_large`).
+- The legacy request (one file plus label and status, multipart to `/api/annotate`) still works through a one-shot path: triage, accept the plan, annotate. If triage needs attention it answers `needs_confirmation`. Move to a private Blob store with a deletion rule when packets or scans outgrow the request limits.
 - Checked against Vercel docs in November 2026: request and response bodies are limited to 4.5 MB; function duration defaults to 300 s (Hobby maximum 300 s, Pro maximum 800 s); private Blob storage is generally available; direct browser uploads and signed URLs are JavaScript SDK features, not Python; Workflow hooks can pause for a person but Python support is beta.
 - Never log document text.
 

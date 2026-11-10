@@ -29,8 +29,8 @@ is not built: scanned PDFs are refused.
 .venv/bin/python test_annotate.py                      # annotation schema, request, cited-page check, parallel chains (47 checks)
 .venv/bin/python test_workbook.py                      # template rendering, chain sheets, packet map, tallies (77 checks)
 .venv/bin/python test_pipeline.py                      # end to end with stubbed calls; plan validation; CLI (64 checks)
-.venv/bin/python test_web.py                           # page reading + HTTP API (FastAPI TestClient) (88 checks)
-cd ui_test && npm install && node test_ui.mjs          # drives public/index.html in jsdom against a stub server (44 checks)
+.venv/bin/python test_web.py                           # page reading + HTTP API, both steps and the legacy request (123 checks)
+cd ui_test && npm install && node test_ui.mjs          # drives public/index.html (drop zone, confirm screen) in jsdom against a stub server (58 checks)
 
 .venv/bin/python tools/probe_schemas.py                # REAL (tiny, paid): does the API accept each tool schema?
 .venv/bin/python tools/live_triage.py FILE... [--expected MAP]   # REAL (paid) triage; prints the map, never page text
@@ -108,13 +108,28 @@ what triage finds, never on how many files were uploaded.
 - `settings.py` is the only place config is read (env vars with defaults; `.env` loaded locally,
   never on Vercel). Asset paths are anchored to the file so they resolve in the serverless bundle.
 
-### Web API (`api/index.py`)
+### Web API (`api/index.py`) and page (`public/index.html`)
 
-- `POST /api/annotate`: with `Accept: application/x-ndjson` it streams progress events plus a
-  heartbeat every 10 s, and the workbook arrives base64 in the final event. Without that header it
-  keeps the original contract (one `file`, optional `label`/`status`) and returns xlsx bytes directly
-  — don't break this. Both run the one-shot path (`service.annotate_one_shot`: triage, auto-confirm,
-  annotate); if triage needs a person it answers `needs_confirmation` (409 in classic mode).
+Two requests, never one held open while a person decides. The browser holds the state between
+them (plan JSON + page texts, capped at `CANETRUST_MAX_STATE_MB`, default 3 MB of page text).
+
+- `POST /api/triage` (multipart `files`, `access_code`, optional `doc_name`): size, type and page
+  text are checked before streaming; then NDJSON progress + heartbeat every 10 s, ending with
+  `{"type":"triaged","plan":..., "pages":{file_id:[texts]}, "skip_confirm":bool}`.
+- `POST /api/annotate` with `Content-Type: application/json` (`plan`, `pages`, `access_code`): the
+  server re-validates the plan (`plan.validate_plan`, `service.confirmed_plan_problems`: coverage,
+  ranges, types, treatments, overrides, at most 8 amendments per chain) and refuses with 422
+  `invalid_plan` + `problems`; labels and chains are recomputed; then NDJSON ending in
+  `{"type":"done", ..., "xlsx_base64":...}`.
+- `POST /api/annotate` multipart is the legacy request: one `file` (or `trust`, plus optional
+  `amendment_files`), `label`, `status`. It runs `service.annotate_one_shot` (triage, auto-confirm,
+  annotate). With `Accept: application/x-ndjson` it streams; without, it returns xlsx bytes directly
+  — don't break this. If triage needs a person it answers `needs_confirmation` (409 in classic mode).
+- The page: one multi-file drop zone, then the confirm screen (files; documents in file order with
+  those needing a decision first; type, date, treatment, chain (amends), note, superseded, exclude,
+  split, merge; a live summary; a gate when triage suspects two matters). Every edit is recorded in
+  `plan.edits` and written to the packet map as an audit record. The screen is skipped only for one
+  high-confidence document with no flags (`service.can_skip_confirm`).
 - Access code is required (`CANETRUST_ACCESS_CODE`, via `x-access-code` header or form field). With
   no code set the app answers 503 unless `CANETRUST_ALLOW_OPEN=1`.
 - `GET /api/health` reports `assets_present`, `api_key_set`, etc.
