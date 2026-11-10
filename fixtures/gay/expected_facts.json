@@ -1,0 +1,60 @@
+{
+  "schema_notes": "Facts the facts lane should find across the packet. Contact details can come from any document; newest source wins, conflicts are shown.",
+  "date_of_death": {
+    "value": "2023-05-19",
+    "sources": [
+      "letters_of_administration",
+      "notice_to_creditors"
+    ]
+  },
+  "probate_case": {
+    "number": "2023-CP-002327",
+    "court": "Circuit Court, Manatee County, Florida, probate division",
+    "sources": [
+      "letters_of_administration",
+      "notice_of_administration",
+      "notice_to_creditors"
+    ]
+  },
+  "personal_representative": {
+    "name": "Mahalie Ann Fulton",
+    "sources": [
+      "letters_of_administration",
+      "cover_letter",
+      "notice_of_administration"
+    ]
+  },
+  "successor_trustee": {
+    "name": "Mahalie Ann Fulton",
+    "backup": "Bank of America, N.A.",
+    "sources": [
+      "trust (Article 11)",
+      "accounting"
+    ]
+  },
+  "addresses_for_mahalie_ann_fulton": [
+    {
+      "address": "7120 Teal Creek Glen, Bradenton, FL 34201",
+      "source": "notice_of_administration",
+      "source_date": null,
+      "note": "notice is part of the 2023 administration filings"
+    },
+    {
+      "address": "7120 Teal Creek Glen, Lakewood Ranch, FL 34202",
+      "source": "accounting",
+      "source_date": "2025-06-27"
+    }
+  ],
+  "expected_conflict": "The address for Mahalie Ann Fulton differs between the notice of administration and the 2025 accounting. The newest source (accounting) is preferred and both are shown.",
+  "estate_attorney": {
+    "name": "Ashley S. Hodson",
+    "firm": "Shumaker, Loop & Kendrick, LLP",
+    "phone": "941.364.2723",
+    "email": "ahodson@shumaker.com",
+    "sources": [
+      "cover_letter",
+      "notice_of_administration"
+    ]
+  },
+  "no_personal_phone_or_email_for_representative": true
+}

@@ -1,0 +1,434 @@
+{
+  "schema_notes": "Sheets are 1-based positions in the PDF file. 'labels' lists one expected printed-page label per sheet in the range; 'labels_from' means consecutive numbers starting at that value. 'source' is printed, inferred or unnumbered. A rule with assert=false is not checked. Written by reading page images, so a mismatch can mean this map is wrong as well as the code.",
+  "files": {
+    "Gay__Lawrence__Revocable_Trust.pdf": {
+      "sheets": 48
+    },
+    "Gay__Lawrence__Revocable_Trust_Amendment_10-25-21.pdf": {
+      "sheets": 50
+    },
+    "Gay__Lawrence__Last_Will_and_Codicil_and_Notice_of_Admin_SIGNED.pdf": {
+      "sheets": 21
+    }
+  },
+  "documents": [
+    {
+      "id": "trust",
+      "file": "Gay__Lawrence__Revocable_Trust.pdf",
+      "first": 1,
+      "last": 48,
+      "family": "dispositive",
+      "type": "restated_trust",
+      "title": "Amended and restated revocable trust",
+      "date": "2022-11-28",
+      "treatment": "annotate",
+      "refers_to": [
+        {
+          "what": "revocable trust",
+          "date": "2021-10-05",
+          "provided": false,
+          "status": "superseded by this restatement; not a gap"
+        },
+        {
+          "what": "amendment",
+          "date": "2022-06-09",
+          "provided": false,
+          "status": "superseded by this restatement; not a gap"
+        }
+      ],
+      "label_rules": [
+        {
+          "sheets": [
+            1,
+            1
+          ],
+          "labels": [
+            "unnumbered, sheet 1 of 48"
+          ],
+          "source": "unnumbered"
+        },
+        {
+          "sheets": [
+            2,
+            2
+          ],
+          "labels": [
+            "i"
+          ],
+          "source": "inferred",
+          "note": "first contents page prints no numeral; next page prints ii"
+        },
+        {
+          "sheets": [
+            3,
+            5
+          ],
+          "labels": [
+            "ii",
+            "iii",
+            "iv"
+          ],
+          "source": "printed"
+        },
+        {
+          "sheets": [
+            6,
+            6
+          ],
+          "labels": [
+            "1"
+          ],
+          "source": "inferred",
+          "note": "body page 1 prints no number; next page prints 2"
+        },
+        {
+          "sheets": [
+            7,
+            46
+          ],
+          "labels_from": 2,
+          "source": "printed",
+          "note": "labels 2 to 41"
+        },
+        {
+          "sheets": [
+            47,
+            48
+          ],
+          "assert": false,
+          "note": "blank schedule page and acknowledgment page print no number; convention for trailing pages not asserted"
+        }
+      ]
+    },
+    {
+      "id": "accounting",
+      "file": "Gay__Lawrence__Revocable_Trust_Amendment_10-25-21.pdf",
+      "first": 1,
+      "last": 50,
+      "family": "financial",
+      "type": "accounting",
+      "title": "Trust fiduciary accounting, 2023-05-19 to 2024-12-31",
+      "date": "2025-06-27",
+      "treatment": "log_only",
+      "note": "File name says amendment; the content is an accounting. The manual reviewer marked it not to be completed.",
+      "label_rules": [
+        {
+          "sheets": [
+            1,
+            50
+          ],
+          "assert": false,
+          "note": "printed numbering not checked by the author of this map"
+        }
+      ]
+    },
+    {
+      "id": "receipt_signed",
+      "file": "Gay__Lawrence__Last_Will_and_Codicil_and_Notice_of_Admin_SIGNED.pdf",
+      "first": 1,
+      "last": 1,
+      "family": "administrative",
+      "type": "receipt_of_notice",
+      "title": "Receipt of notice of administration, signed",
+      "date": "2023-10-03",
+      "treatment": "facts_only",
+      "label_rules": [
+        {
+          "sheets": [
+            1,
+            1
+          ],
+          "labels": [
+            "unnumbered, sheet 1 of 1"
+          ],
+          "source": "unnumbered"
+        }
+      ]
+    },
+    {
+      "id": "cover_letter",
+      "file": "Gay__Lawrence__Last_Will_and_Codicil_and_Notice_of_Admin_SIGNED.pdf",
+      "first": 2,
+      "last": 3,
+      "family": "administrative",
+      "type": "letter",
+      "title": "Cover letter from the estate attorneys",
+      "date": "2023-09-06",
+      "treatment": "facts_only",
+      "label_rules": [
+        {
+          "sheets": [
+            2,
+            2
+          ],
+          "labels": [
+            "1"
+          ],
+          "source": "inferred",
+          "note": "page 1 prints no number; page 2 prints Page 2 in its header"
+        },
+        {
+          "sheets": [
+            3,
+            3
+          ],
+          "labels": [
+            "2"
+          ],
+          "source": "printed"
+        }
+      ]
+    },
+    {
+      "id": "letters_of_administration",
+      "file": "Gay__Lawrence__Last_Will_and_Codicil_and_Notice_of_Admin_SIGNED.pdf",
+      "first": 4,
+      "last": 4,
+      "family": "administrative",
+      "type": "letters_of_administration",
+      "title": "Letters of administration",
+      "date": "2023-08-17",
+      "treatment": "facts_only",
+      "label_rules": [
+        {
+          "sheets": [
+            4,
+            4
+          ],
+          "labels": [
+            "unnumbered, sheet 1 of 1"
+          ],
+          "source": "unnumbered"
+        }
+      ]
+    },
+    {
+      "id": "will",
+      "file": "Gay__Lawrence__Last_Will_and_Codicil_and_Notice_of_Admin_SIGNED.pdf",
+      "first": 5,
+      "last": 13,
+      "family": "dispositive",
+      "type": "will",
+      "title": "Last will and testament",
+      "date": "2021-10-05",
+      "treatment": "annotate",
+      "label_rules": [
+        {
+          "sheets": [
+            5,
+            5
+          ],
+          "labels": [
+            "unnumbered, sheet 1 of 9"
+          ],
+          "source": "unnumbered"
+        },
+        {
+          "sheets": [
+            6,
+            6
+          ],
+          "labels": [
+            "unnumbered, sheet 2 of 9"
+          ],
+          "source": "unnumbered"
+        },
+        {
+          "sheets": [
+            7,
+            7
+          ],
+          "labels": [
+            "1"
+          ],
+          "source": "inferred",
+          "note": "body page 1 prints no number; next page prints 2"
+        },
+        {
+          "sheets": [
+            8,
+            13
+          ],
+          "labels_from": 2,
+          "source": "printed",
+          "note": "labels 2 to 7"
+        }
+      ]
+    },
+    {
+      "id": "codicil",
+      "file": "Gay__Lawrence__Last_Will_and_Codicil_and_Notice_of_Admin_SIGNED.pdf",
+      "first": 14,
+      "last": 17,
+      "family": "dispositive",
+      "type": "codicil",
+      "title": "Codicil to the will",
+      "date": "2022-11-28",
+      "treatment": "annotate",
+      "amends": "will",
+      "label_rules": [
+        {
+          "sheets": [
+            14,
+            14
+          ],
+          "labels": [
+            "unnumbered, sheet 1 of 4"
+          ],
+          "source": "unnumbered"
+        },
+        {
+          "sheets": [
+            15,
+            15
+          ],
+          "labels": [
+            "unnumbered, sheet 2 of 4"
+          ],
+          "source": "unnumbered"
+        },
+        {
+          "sheets": [
+            16,
+            16
+          ],
+          "labels": [
+            "unnumbered, sheet 3 of 4"
+          ],
+          "source": "unnumbered"
+        },
+        {
+          "sheets": [
+            17,
+            17
+          ],
+          "labels": [
+            "unnumbered, sheet 4 of 4"
+          ],
+          "source": "unnumbered"
+        }
+      ]
+    },
+    {
+      "id": "notice_of_administration",
+      "file": "Gay__Lawrence__Last_Will_and_Codicil_and_Notice_of_Admin_SIGNED.pdf",
+      "first": 18,
+      "last": 19,
+      "family": "administrative",
+      "type": "notice_of_administration",
+      "title": "Notice of administration",
+      "date": null,
+      "treatment": "facts_only",
+      "label_rules": [
+        {
+          "sheets": [
+            18,
+            18
+          ],
+          "labels": [
+            "1"
+          ],
+          "source": "printed",
+          "note": "form footer: 1 of 2"
+        },
+        {
+          "sheets": [
+            19,
+            19
+          ],
+          "labels": [
+            "2"
+          ],
+          "source": "printed",
+          "note": "form footer: 2 of 2"
+        }
+      ]
+    },
+    {
+      "id": "receipt_blank",
+      "file": "Gay__Lawrence__Last_Will_and_Codicil_and_Notice_of_Admin_SIGNED.pdf",
+      "first": 20,
+      "last": 20,
+      "family": "administrative",
+      "type": "receipt_of_notice",
+      "title": "Receipt of notice of administration, blank",
+      "date": null,
+      "treatment": "log_only",
+      "note": "Blank copy of receipt_signed.",
+      "label_rules": [
+        {
+          "sheets": [
+            20,
+            20
+          ],
+          "labels": [
+            "unnumbered, sheet 1 of 1"
+          ],
+          "source": "unnumbered"
+        }
+      ]
+    },
+    {
+      "id": "notice_to_creditors",
+      "file": "Gay__Lawrence__Last_Will_and_Codicil_and_Notice_of_Admin_SIGNED.pdf",
+      "first": 21,
+      "last": 21,
+      "family": "administrative",
+      "type": "notice_to_creditors",
+      "title": "Notice to creditors",
+      "date": "2023-08-25",
+      "treatment": "facts_only",
+      "note": "Date is the first publication date. The notice also states the date of death.",
+      "label_rules": [
+        {
+          "sheets": [
+            21,
+            21
+          ],
+          "labels": [
+            "unnumbered, sheet 1 of 1"
+          ],
+          "source": "unnumbered"
+        }
+      ]
+    }
+  ],
+  "chains": [
+    {
+      "id": "trust_chain",
+      "base": "trust",
+      "amendments": [],
+      "superseded_not_provided": [
+        "2021-10-05 trust",
+        "2022-06-09 amendment"
+      ]
+    },
+    {
+      "id": "will_chain",
+      "base": "will",
+      "amendments": [
+        "codicil"
+      ]
+    }
+  ],
+  "expected_counts": {
+    "documents": 10,
+    "annotate": 3,
+    "facts_only": 5,
+    "log_only": 2,
+    "chains": 2
+  },
+  "ground_truth_workbook": {
+    "file": "ground_truth/MiLA_Annotation_Gay_Manual_Review.xlsx",
+    "sheet_to_target": {
+      "Gay, Lawrence  Revocable Trust.": "trust_chain",
+      "Gay, Lawrence  Last Will and Co": "will_chain",
+      "Gay, Lawrence  Revocable Trust ": "accounting (reviewer note: should not be completed)"
+    },
+    "caveats": [
+      "The manual review is a reference, not ground truth: it was made per file by different reviewers.",
+      "Its trust sheet cites printed page numbers; its will sheet mixes printed pages and PDF pages.",
+      "Its trust sheet gives trustee contact details as not in this document; the will sheet found them in the notices."
+    ]
+  }
+}

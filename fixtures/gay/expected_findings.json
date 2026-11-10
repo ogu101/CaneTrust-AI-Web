@@ -1,0 +1,28 @@
+{
+  "schema_notes": "A few high-signal results the final workbook must contain. Checked last, after the lower rungs of docs/ACCEPTANCE.md pass.",
+  "trust_chain": {
+    "university_mentions": 2,
+    "mentions": [
+      {
+        "where": "Article 5, section 5.2(i), printed page 7",
+        "gist": "one of three equal shares of the residuary trust estate, for the University of Miami ALS Center"
+      },
+      {
+        "where": "Article 10(i), printed page 11",
+        "gist": "alternative distribution, equal shares to three charities, University of Miami ALS Center first"
+      }
+    ],
+    "university_is": "primary residuary beneficiary (one of three equal shares)",
+    "successor_trustee": "Mahalie Ann Fulton, then Bank of America, N.A. (Article 11, printed page 11)",
+    "residuary_follows": "payment of obligations, expenses and taxes (Article 17) and the specific gifts in section 5.1"
+  },
+  "will_chain": {
+    "gift_to_university": "none",
+    "residuary": "to the then serving trustee of the revocable trust (Article 3, printed page 2)",
+    "codicil_changes": [
+      "replaces section 2.2 (gifts of tangible personal property)",
+      "replaces Article 4 (alternate personal representative)"
+    ]
+  },
+  "accounting": "not annotated; listed in the packet map as log only"
+}
