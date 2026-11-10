@@ -1,64 +1,56 @@
-# CaneTrust AI: trust annotation, command line and web
+# CaneTrust AI: estate document annotation, command line and web
 
-Turns a trust (and its amendments, if any) into a filled annotation workbook for the Office of
-Estate and Gift Planning, ready for attorney review. Run it from the command line, or host it
-on Vercel so users upload their documents and download the workbook.
+Turns the documents of one matter (a trust and its amendments, a will and codicils, notices,
+letters, accountings, in any mix of files) into one annotation workbook for the Office of Estate
+and Gift Planning, ready for attorney review. Run it from the command line, or host it on Vercel
+so users upload their documents and download the workbook. The design is `docs/DESIGN.md`.
 
 ## Architecture
 
 ```
- config.py ──► cli.py ──────────────┐                       ┌── no amendments ──► single pipeline ─► v0 template
- (paths on disk)                    ├─► service.py ─► triage┤
- browser ─► public/index.html ─► api/index.py ─┘            └── any amendments ─► multi pipeline ──► amendments template
- (uploads)    (FastAPI, streams progress)
+ files ─► page_source ─► triage ─► plan ─► (confirm) ─► labels + chains ─┬─► annotate (one call per chain, in parallel) ─┐
+          (text layer)   (one call)                                     └─► facts lane (one call) ───────────────────┴─► workbook
 ```
 
-One pipeline, two front doors. `service.annotate_packet()` is called by both, works on bytes in
-memory, and returns the workbook as bytes, so the CLI and the web app cannot behave differently.
+One pipeline. Branching happens on what triage finds (documents, types, dates), never on how
+many files were uploaded. `service.py` is called by the CLI and the web API alike; it works on
+bytes in memory and returns the workbook as bytes.
 
 ## Files
 
 | File | Role |
 |---|---|
-| `api/index.py` | FastAPI app: validates uploads, streams progress, returns the workbook in the final event |
-| `public/index.html` | Upload page, in the existing UM green and orange style (static; no build step) |
-| `service.py` | `prepare_packet()` (extract and validate) and `annotate_packet()` (model call and workbook) |
-| `extract.py` | PDF/TXT to text, in memory. Refuses scans, marks unreadable pages, adds `[PDF page N of M]` markers |
-| `packet.py` | `Packet`, validation, `triage()`; `make_packet()` (memory) and `build_packet()` (paths) |
+| `api/index.py` | FastAPI app: validates uploads, streams progress and heartbeats, returns the workbook in the final event |
+| `public/index.html` | The web page, in the UM green and orange style (static; no build step) |
+| `service.py` | `load_files()`, `triage_packet()`, `annotate_plan()`, and the one-shot path the CLI and legacy request use |
+| `page_reader.py`, `page_source.py` | File bytes to page records; scans are refused (OCR comes later) |
+| `page_labels.py` | Printed page labels per document (`printed`, `inferred`, `unnumbered, sheet N of M`) |
+| `triage.py`, `triage_schema.py`, `triage_previews.py` | One call over page previews: where each document starts and ends, and what it is |
+| `plan.py` | The document map the confirm screen edits; validated again on the server |
+| `chains.py` | Pure logic: which instruments amend which, ordered by their own dates |
+| `facts.py` | Contacts and court facts from any document, with sources and conflicts |
+| `annotation_schema.py`, `annotate.py` | One annotation schema and call per chain (a chain with no amendments is n = 0) |
+| `workbook.py` | One workbook per matter: a sheet per chain plus the Packet map |
 | `settings.py` | All settings from environment variables; asset paths anchored to the file |
-| `schema*.py`, `llm*.py`, `render*.py`, `cell_map*.py` | Single-document and multi-document pipelines |
-| `assets/` | The two templates and two rules files, bundled with the deployment |
-| `cli.py`, `config.py` | Command-line entry and its inputs (this was `main.py`) |
+| `assets/` | The template, the annotation and triage rules, the default treatments, the chain families |
+| `cli.py`, `config.py` | Command-line entry and its inputs |
 | `dev_stub_server.py` | Runs the whole app with a fake model: no key, no cost |
-| `test_multi.py`, `test_web.py`, `ui_test/` | Tests; none needs an API key |
+| `test_*.py`, `ui_test/`, `testkit.py` | Tests; none needs an API key |
+| `tools/` | Dev tools that make real (paid) calls: `probe_schemas.py`, `live_triage.py` |
 
 ## Key decisions
 
-- **Extraction is part of the pipeline.** `config.py` and the upload form both take PDFs directly.
-- **Scans are refused with an explanation**, not passed to the model. OCR is not built.
+- **Content beats file names.** Triage classifies documents by what they say; chains are ordered by the dates in the documents.
+- **Citations use printed page numbers**, never PDF positions. Code checks every cited page exists.
+- **Scans are refused with an explanation**, not passed to the model. OCR is not built yet.
 - **Uploads are validated before anything streams**, so a bad file gets an immediate HTTP error.
-- **The model call streams progress and a heartbeat** every 10 s; the workbook arrives in the last event.
-- **The original API contract still works.** A request without `Accept: application/x-ndjson` (one `file`, optional `label` and `status`) gets the workbook bytes back directly, as the first version of `/api/annotate` did. The new page asks for the stream.
+- **Long calls stream progress and a heartbeat** every 10 s; the workbook arrives in the last event.
+- **One chain failing does not sink the others**: the workbook gets the rest and the packet map says what failed.
+- **The original API contract still works.** A request without `Accept: application/x-ndjson` (one `file`, optional `label` and `status`) gets the workbook bytes back directly.
 - **Nothing touches disk.** Uploads and results are in memory; the raw-output debug dump is off unless `CANETRUST_DEBUG_DIR` is set.
 - **A deployment with no access code refuses to run.** A public URL that spends money needs a gate.
 - **Server logs never contain document text**: error class names and our own messages only.
-- **`cli.py`, not `main.py`**: Vercel treats `main.py` as a candidate web entrypoint. The existing repo routes `api/index.py` explicitly, so this rename is optional.
-
-## Adding this to the existing repo
-
-Do it on a branch so Vercel builds a preview and `main` stays as it is.
-
-| Action | Files |
-|---|---|
-| Replace | `api/index.py`, `public/index.html`, `config.py`, `vercel.json`, `requirements.txt`, `.gitignore` |
-| Replace (small edits) | `llm.py` (debug dump is opt-in), `render.py` (rows shift correctly, writes to memory, status string), `cell_map.py` (adds `STATUS_TO_CELL`) |
-| Unchanged | `schema.py` |
-| Add | `extract.py`, `packet.py`, `service.py`, `settings.py`, `workbook_io.py`, `schema_multi.py`, `llm_multi.py`, `render_multi.py`, `cell_map_multi.py`, `cli.py`, `assets/` (both templates and both rules files), `dev_stub_server.py`, `test_multi.py`, `test_web.py`, `testkit.py`, `fixtures/`, `ui_test/` |
-| Delete | `main.py` (now `cli.py`), `extract_from_pdf` (now `extract.py`), root `extraction_rules.md` and `INPUT/MiLA_Annotation_Template_v0.xlsx` (now in `assets/`), `test_render.py` (superseded by `test_multi.py`) |
-
-`vercel.json` keeps the repo's `/api/(.*)` rewrite and `maxDuration` of 300, and adds `excludeFiles`.
-After the first deploy, set `CANETRUST_ACCESS_CODE` in the project's environment variables, or the
-app answers 503 (a deployment with no code refuses to run). `ANTHROPIC_API_KEY` should already be set.
+- **`cli.py`, not `main.py`**: Vercel treats `main.py` as a candidate web entrypoint.
 
 ## Run it locally
 
@@ -68,8 +60,8 @@ python dev_stub_server.py                  # the page at http://127.0.0.1:8000, 
 ```
 
 Real model: put `ANTHROPIC_API_KEY` in `.env`, then `uvicorn api.index:app` (or `vercel dev`).
-Command line: set `config.py`, then `python cli.py`. Tests: `python test_multi.py`,
-`python test_web.py`, and `cd ui_test && npm install && node test_ui.mjs`.
+Command line: list the files in `config.py`, then `python cli.py`. Tests: every `test_*.py`
+(see CLAUDE.md for the list), and `cd ui_test && npm install && node test_ui.mjs`.
 
 ## Deploy to Vercel
 

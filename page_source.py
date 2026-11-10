@@ -20,8 +20,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
-from extract import ExtractionError
-from page_reader import PageRecord, read_pages, records_from_texts
+from page_reader import ExtractionError, PageRecord, read_pages, records_from_texts
 
 SIDECAR_SUFFIX = ".pages.json"
 

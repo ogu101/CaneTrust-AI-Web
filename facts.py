@@ -38,7 +38,7 @@ from pydantic import Field, ValidationError, field_validator
 
 from settings import Settings, require_api_key
 from triage import NO_FORCED_TOOL_CHOICE, normalize_principal
-from triage_schema import StrictModel
+from schema_limits import StrictModel
 
 TOOL_NAME = "record_facts"
 MAX_CONTACT_PAGES = 8

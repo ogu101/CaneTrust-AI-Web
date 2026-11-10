@@ -6,10 +6,10 @@ Web API (FastAPI on Vercel's Python runtime).
 
 How a request flows
     1. Cheap checks first, answered with a normal HTTP error: access code, file count and
-       size, file types, then text extraction and packet validation (service.prepare_packet).
-       A scanned PDF, a duplicate amendment number or an oversized upload fails HERE, in
-       well under a second, not minutes into a model call.
-    2. Only then does the response start streaming. The model call runs in a worker thread
+       size, file types, then page text and size limits (service.load_files). A scanned PDF
+       or an oversized upload fails HERE, in well under a second, not minutes into a model call.
+    2. Only then does the response start streaming. The pipeline (triage, then every chain
+       annotated with the facts lane beside it; service.annotate_one_shot) runs in a worker thread
        and the response emits progress events and a heartbeat every few seconds. Vercel
        recommends this for long requests: idle HTTP/1.1 connections can be closed by
        intermediaries, and a stream also lets the page show that work is happening.
@@ -20,21 +20,22 @@ Two ways to call /api/annotate
     streaming   send the header  Accept: application/x-ndjson  (the new page does). Progress
                 events and a heartbeat stream back; see below.
     classic     no such header. The old contract still works: one file in the field `file`
-                (or `trust`), optional `label` and `status`; the workbook bytes come back in
-                the response, as the original endpoint did. Errors are JSON with a status code.
+                (or `trust`), optional `label` (the matter name) and `status` (accepted; the
+                status now comes from the chain); the workbook bytes come back in the response.
+                Errors are JSON with a status code. If triage needs a person's decision the
+                answer is 409 needs_confirmation: use the confirm screen.
                 Use this to keep an existing page working while a new one is built.
 
 Events (one JSON object per line, streaming mode):
     {"type":"progress","message":"..."}
     {"type":"heartbeat","elapsed":42}
-    {"type":"done","filename":"...","route":"single|multi","warnings":[...],"xlsx_base64":"..."}
+    {"type":"done","filename":"...","route":"unified","warnings":[...],"chains":[...],"xlsx_base64":"..."}
     {"type":"error","code":"...","message":"..."}
 
 Nothing from the uploaded documents is logged: only event types, sizes and error classes.
 """
 
 import base64
-import dataclasses
 import hmac
 import json
 import os
@@ -55,9 +56,8 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import ValidationError
 
-from extract import SUPPORTED_SUFFIXES, ExtractionError
-from packet import MAX_AMENDMENTS
-from service import AmendmentUpload, UploadedFile, annotate_packet, prepare_packet
+from page_reader import SUPPORTED_SUFFIXES, ExtractionError
+from service import NeedsConfirmation, UploadedFile, annotate_one_shot, describe_failure, load_files
 from settings import Settings, load_local_env, load_settings
 
 load_local_env()
@@ -77,6 +77,7 @@ _STATUS_FOR_KIND = {
 
 
 _STATUS_FOR_FAILURE = {
+    "needs_confirmation": 409,
     "rate_limited": 429,
     "model_auth": 502,
     "model_unreachable": 502,
@@ -130,30 +131,6 @@ def _too_large_message(limit_bytes: int) -> str:
             f"upload. Send fewer or smaller files.")
 
 
-def _parse_amendments(meta_json: str, files: list[UploadFile]) -> list[tuple[UploadFile, int, str]]:
-    try:
-        meta = json.loads(meta_json or "[]")
-    except json.JSONDecodeError:
-        raise ApiError(400, "bad_request", "amendments_meta is not valid JSON.") from None
-    if not isinstance(meta, list) or len(meta) != len(files):
-        raise ApiError(400, "bad_request",
-                       "Send one amendments_meta entry for each amendment file, in the same order.")
-    if len(files) > MAX_AMENDMENTS:
-        raise ApiError(400, "too_many_amendments", f"At most {MAX_AMENDMENTS} amendments are supported.")
-
-    parsed = []
-    for upload, entry in zip(files, meta):
-        number = entry.get("number") if isinstance(entry, dict) else None
-        if isinstance(number, str) and number.strip().isdigit():
-            number = int(number.strip())
-        if not isinstance(number, int) or isinstance(number, bool) or number < 1:
-            raise ApiError(400, "bad_amendment_number",
-                           f"{upload.filename}: the amendment number must be a whole number, 1 or higher.")
-        label = str(entry.get("label") or "").strip() or f"Amendment {number}"
-        parsed.append((upload, number, label))
-    return parsed
-
-
 def _content_disposition(filename: str) -> str:
     """ASCII fallback plus the RFC 5987 form, so any characters in a name are safe in a header."""
     fallback = filename.encode("ascii", "ignore").decode("ascii").replace('"', "") or "annotation.xlsx"
@@ -164,22 +141,7 @@ def _event(kind: str, **fields) -> str:
     return json.dumps({"type": kind, **fields}, separators=(",", ":")) + "\n"
 
 
-def _describe_failure(exc: Exception) -> tuple[str, str]:
-    """(code, message) safe to show a user. Never includes document text or secrets."""
-    if isinstance(exc, anthropic.AuthenticationError):
-        return "model_auth", "The server could not authenticate with the model provider. Tell the administrator."
-    if isinstance(exc, anthropic.RateLimitError):
-        return "rate_limited", "The model provider is rate-limiting requests. Wait a minute and try again."
-    if isinstance(exc, anthropic.APIConnectionError):          # includes timeouts
-        return "model_unreachable", "Could not reach the model provider. Try again."
-    if isinstance(exc, anthropic.APIStatusError):
-        return "model_error", f"The model provider returned an error (HTTP {exc.status_code}). Try again."
-    if isinstance(exc, ValidationError):
-        return "bad_model_output", ("The model's answer did not match the expected form. "
-                                    "Try again; if it keeps happening, tell the administrator.")
-    if isinstance(exc, RuntimeError):                          # crafted messages in llm*.py / settings
-        return "run_failed", str(exc)
-    return "internal", "Something went wrong while building the workbook."
+_describe_failure = describe_failure
 
 
 def _log_failure(exc: Exception) -> None:
@@ -189,19 +151,20 @@ def _log_failure(exc: Exception) -> None:
         detail = str([(list(e["loc"]), e["type"]) for e in exc.errors(include_input=False)][:5])
     elif isinstance(exc, anthropic.APIStatusError):
         detail = f"HTTP {exc.status_code}"
-    elif isinstance(exc, RuntimeError):                        # messages written in llm*.py / settings
+    elif isinstance(exc, RuntimeError):                        # messages we wrote (annotate, triage, settings)
         detail = str(exc)[:300]
     else:
         detail = "(message withheld)"
     print(f"[error] {type(exc).__name__}: {detail}", file=sys.stderr)
 
 
-def _stream_annotation(packet, settings: Settings):
+def _stream_annotation(files, settings: Settings, name: str):
     events: queue.Queue = queue.Queue()
 
     def worker():
         try:
-            result = annotate_packet(packet, settings, progress=lambda m: events.put(("progress", m)))
+            result = annotate_one_shot(files, settings, progress=lambda m: events.put(("progress", m)),
+                                       name=name)
             events.put(("done", result))
         except Exception as exc:                              # reported to the client, not raised
             events.put(("error", exc))
@@ -228,7 +191,7 @@ def _stream_annotation(packet, settings: Settings):
         elif kind == "done":
             yield _event(
                 "done", filename=payload.filename, route=payload.route, warnings=payload.warnings,
-                xlsx_base64=base64.b64encode(payload.xlsx).decode("ascii"),
+                chains=payload.chains, xlsx_base64=base64.b64encode(payload.xlsx).decode("ascii"),
             )
             return
         else:
@@ -252,8 +215,8 @@ def health():
         "access_code_required": settings.access_code is not None,
         "open_access_allowed": settings.allow_open,
         "assets_present": all(p.is_file() for p in (
-            settings.template_single, settings.template_multi,
-            settings.rules_single, settings.rules_multi)),
+            settings.template, settings.annotation_rules, settings.triage_rules,
+            settings.default_treatments)),
         "max_upload_mb": round(settings.max_upload_bytes / 1024 / 1024, 1),
         "supported_types": list(SUPPORTED_SUFFIXES),
     }
@@ -265,58 +228,45 @@ def annotate(
     trust: Annotated[UploadFile | None, File()] = None,
     file: Annotated[UploadFile | None, File()] = None,            # classic field name for the trust
     amendment_files: Annotated[list[UploadFile] | None, File()] = None,
-    amendments_meta: Annotated[str, Form()] = "[]",
+    amendments_meta: Annotated[str, Form()] = "[]",               # accepted and ignored: triage reads content
     doc_name: Annotated[str, Form()] = "",
     trust_label: Annotated[str, Form()] = "",
-    label: Annotated[str, Form()] = "",                           # classic: the trust's label
-    status: Annotated[str, Form()] = "",                          # classic: the trust's status
+    label: Annotated[str, Form()] = "",                           # classic: becomes the matter name
+    status: Annotated[str, Form()] = "",                          # classic: accepted; status now comes from the chain
     access_code: Annotated[str, Form()] = "",
 ):
     settings = load_settings()
     _check_access(settings, request.headers.get("x-access-code") or access_code)
 
-    trust_upload = trust or file
-    if trust_upload is None:
+    first = trust or file
+    if first is None:
         raise ApiError(422, "missing_file", "Upload the trust file in the field 'trust' (or 'file').")
-    if status.strip():
-        settings = dataclasses.replace(settings, layer_status=status.strip()[:60])
-
-    amendment_files = amendment_files or []
-    parsed = _parse_amendments(amendments_meta, amendment_files)
 
     budget = settings.max_upload_bytes
-    trust_file = _read_upload(trust_upload, budget)
-    budget -= len(trust_file.data)
     uploads = []
-    for upload, number, amendment_label in parsed:
+    for upload in [first, *(amendment_files or [])]:
         uploaded = _read_upload(upload, budget)
         budget -= len(uploaded.data)
-        uploads.append(AmendmentUpload(file=uploaded, number=number, label=amendment_label))
+        uploads.append(uploaded)
 
-    stem = Path(trust_file.filename).stem
     try:
-        packet = prepare_packet(
-            doc_name=doc_name.strip() or stem,
-            trust=trust_file,
-            trust_label=(trust_label or label).strip() or stem,
-            amendments=uploads,
-            settings=settings,
-        )
+        load_files(uploads, settings)                 # fast checks before anything streams
     except ExtractionError as exc:
         raise ApiError(_STATUS_FOR_KIND.get(exc.kind, 400), exc.kind, str(exc)) from exc
     except ValueError as exc:
         raise ApiError(400, "invalid_packet", str(exc)) from exc
+    name = (doc_name or trust_label or label).strip() or Path(uploads[0].filename).stem
 
     if "application/x-ndjson" in (request.headers.get("accept") or ""):
         return StreamingResponse(
-            _stream_annotation(packet, settings),
+            _stream_annotation(uploads, settings, name),
             media_type="application/x-ndjson",
             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
         )
 
     # Classic mode: run to completion and return the workbook itself.
     try:
-        result = annotate_packet(packet, settings)
+        result = annotate_one_shot(uploads, settings, name=name)
     except Exception as exc:
         _log_failure(exc)
         code, message = _describe_failure(exc)

@@ -5,7 +5,16 @@ number of optional and union-typed parameters across one schema; these counts ap
 counts them, and tools/probe_schemas.py confirms against the real API.
 """
 
-# Strict tool use limits (see schema_multi.py): at most 24 optional parameters and 16
+from pydantic import BaseModel
+
+
+class StrictModel(BaseModel):
+    """additionalProperties: false at every level, as strict tool use requires. Every tool schema
+    (triage, facts, annotation) is built from it."""
+    model_config = {"extra": "forbid"}
+
+
+# Strict tool use limits: at most 24 optional parameters and 16
 # union-typed parameters across the schema; every object closed and fully required; and no
 # constraint keywords the API's strict mode does not support.
 STRICT_MAX_OPTIONAL = 24

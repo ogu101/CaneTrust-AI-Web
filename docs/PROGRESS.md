@@ -9,6 +9,7 @@ phases 1-5.
 | When | Tool | Calls | Input tokens | Output tokens |
 |---|---|---|---|---|
 | Phase 0 | tools/probe_schemas.py (triage, single, multi) | 3 | 4,765 | 128 |
+| Phase 3 | tools/probe_schemas.py (triage, facts, annotation, annotation strict trial) | 4 | 7,300 | 192 |
 
 ## Phase 0: clean start (done)
 
@@ -78,6 +79,84 @@ phases 1-5.
 - D2.4: contacts are tied to a person through `subject`, compared like principals; contacts of
   nobody named go to an "Other contacts" row.
 
+## Phase 3: unified annotation and workbook (done)
+
+Built:
+- `annotation_schema.py` (one schema; n = 0 has `operative` null), `assets/annotation_rules.md`
+  (one rules file: chains, families, statuses, printed labels, wills and pour-overs).
+- `annotate.py`: `chain_input`, `render_chain` ([Page <label>] markers), `build_request`,
+  `check_citations`, `annotate_chain`, `annotate_chains` (parallel, failures isolated).
+- `workbook.py`: cell anchors, chain sheet renderer, sheet names, packet map, `build_workbook`.
+- `plan.py`: `Plan`, `plan_from_triage`, `validate_plan`, `label_plan`, `chain_plan`.
+- `service.py`: `load_files`, `triage_packet`, `annotate_plan`, `annotate_one_shot`,
+  `describe_failure`, `model_client` (the one place a real client is made).
+- CLI (`cli.py`, `config.py` FILES list) and the current API use the same functions with
+  auto-confirm. `dev_stub_server.py` uses `testkit.StubModel`.
+- Template renamed to `assets/MiLA_Annotation_Template.xlsx`. extract.py folded into
+  page_reader.py (ExtractionError, SUPPORTED_SUFFIXES, unreadable-sheet warnings).
+- Probe (real): triage and facts accepted strict; annotation accepted non-strict; its strict
+  trial rejected again (grammar too large). D0.1 stands.
+- Suites: pages 97, gay 140 (+9 skipped), triage 113, chains 83, facts 40, annotate 47,
+  workbook 77, pipeline 64, web 88, UI 44.
+
+Deleted modules: schema.py, llm.py, render.py, cell_map.py, schema_multi.py, llm_multi.py,
+render_multi.py, cell_map_multi.py, extract.py, packet.py, workbook_io.py,
+assets/MiLA_Annotation_Template_v0.xlsx, assets/extraction_rules.md, extraction_rules_multi.md.
+
+Ported test coverage (test_multi.py deleted; its checks moved):
+- reconcile order / visible "Could not determine" / warnings, enum casing -> test_annotate.
+- rendering with overflow in every section, headers with form and revocation, hidden columns,
+  section shifts, dropdown ranges, tally formula and its values (now computed by
+  testkit.eval_tally, so the 4 recalc.py-dependent checks always run), header row height,
+  BytesIO output, Ambiguous dropdown string -> test_workbook.
+- request strict/forced (now: forced, not strict, by decision), reading order, gap stated to the
+  model -> test_annotate. CLI routing -> test_pipeline (CLI section).
+- test_web extraction checks -> page_reader checks in test_web; API checks rerouted to the stub.
+
+Checks deleted because their subject no longer exists:
+- test_multi: "no amendments -> single", "one amendment -> multi", single/multi routing in the
+  CLI, "single pipeline used the v0 template", "single renderer writes a workbook" (no routing,
+  no second template, no single renderer).
+- test_multi: amendment numbers sorted, missing number detected, duplicate / zero / missing-file /
+  incomplete-entry / too-many amendment entries rejected, empty trust file rejected (no
+  user-numbered amendments; order comes from document dates, coverage from plan validation; the
+  8-amendment limit is now an annotate_chain refusal, tested in test_annotate; an empty file is
+  still refused by page_reader, tested in test_web).
+- test_web: "[PDF page N of M] markers inserted / at the real boundary / can be turned off" and
+  "an unreadable page is marked in the text" (markers removed; the page boundary and the
+  "no extractable text" marker are now checked in test_web and test_annotate).
+- test_web: amendments_meta count / duplicate / non-numeric / malformed / >8 checks, "a gap in the
+  amendment numbers is announced" (amendments_meta is accepted and ignored: triage reads content).
+- test_web: "status reaches the pipeline", "custom status honoured", "status defaults to
+  OPERATIVE" (status now comes from the chain; the legacy field is accepted and ignored; a
+  check that a custom status is still accepted remains).
+- test_pages: "service.py never mentions page_source" (milestone 6 wired it in on purpose; the
+  check that neither the API nor the service ever reads sidecars remains).
+- UI test: progress strings and download names of the two old routes were updated, not deleted.
+
+### Decisions
+
+- D3.1: the annotation tool is non-strict (D0.1). Validation failures are not retried: a retry
+  of a long call would push the request past Vercel's 300 s limit. The chain fails visibly.
+- D3.2: n = 0 lets `operative` be null and copies `original` in code, instead of making the
+  model repeat every answer.
+- D3.3: instrument tags are `Trust` / `Will` / `Instrument` for the base and `Amendment N` /
+  `Codicil N` for the rest; citations name the tag so code can check the page label.
+- D3.4: status tallies use exactly the sections 1-5 status cells (SUM of COUNTIF over ranges),
+  replacing the template's D12:D200, so contacts and empty rows never distort them.
+- D3.5: contacts are section 10 of every chain sheet (duplicated per chain, so each sheet stands
+  alone); with no chain sheets they go on the packet map.
+- D3.6: sheet order Instructions, Packet map, then chains.
+- D3.7: if every chain fails the request fails with the first error; if some fail, the workbook
+  lists the failures. A failed facts lane leaves a note and never fails the run.
+- D3.8: the one-shot path refuses (needs_confirmation) when triage repaired its answer or flags
+  possible multiple matters.
+- D3.9: matter name: doc_name, else the legacy trust_label or label, else the first file's stem.
+- D3.10: the legacy `status` and `amendments_meta` fields are accepted and ignored.
+- D3.11: the packet-level character limit is 2 x CANETRUST_MAX_CHARS; each chain is held to
+  CANETRUST_MAX_CHARS. CANETRUST_MAX_TOKENS_ANNOTATE replaces SINGLE/MULTI (MULTI still read).
+- D3.12: a chain over 8 amendments is refused per chain (the workbook has 8 columns).
+
 ## Next
 
-Phase 3: one annotation path and one workbook; retire the old pipelines.
+Phase 4: two-step API (/api/triage, /api/annotate with a confirmed plan), confirm screen UI.

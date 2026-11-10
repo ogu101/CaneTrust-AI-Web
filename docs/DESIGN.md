@@ -1,6 +1,6 @@
 # Unified pipeline design
 
-Status: agreed design, not yet built. Replaces the separate single-document and multi-document pipelines.
+Status: agreed design, built through milestone 6 on `unified-pipeline` (see `docs/PROGRESS.md`). Replaced the separate single-document and multi-document pipelines.
 
 ## Goal
 
@@ -62,7 +62,8 @@ Labels are computed per document, after triage finds the boundaries (numbering r
 - Front matter in roman numerals is separate from the arabic run.
 - A document with no printed numbers is labeled `unnumbered, sheet N of M`. The exact convention is still to be confirmed with the team.
 - The model sees markers like `[Page 7]` in the text and cites only those. Code checks that every cited label exists in that document.
-- Remove the existing `[PDF page N of M]` markers and the rules text that tells the model to cite PDF pages.
+- The `[PDF page N of M]` markers and the rules text that told the model to cite PDF pages are gone (milestone 6).
+- Citations are written `<instrument tag>, <article/section>, p. <label>`; `annotate.check_citations()` notes any cited label that is not a page of the named instrument in that cell and lists it in the chain notes.
 
 ## Triage
 
@@ -113,6 +114,10 @@ Fields: personal representative and trustee names and contact details, dates of 
 
 Built as `facts.py`: one small strict `record_facts` call on the triage model. It sees facts_only documents in full and, from every other non-excluded document (including log_only ones such as an accounting), only pages with contact cues (phone, e-mail, ZIP code, "successor trustee", "personal representative", "attorney for", "date of death", "case no."), at most 8 per document. The model names the source document and page label; code takes the source date from triage. A source with no date counts as oldest; a same-date tie goes to the later document. Facts appear in the workbook as contact rows with sources and dates in the citation column and conflicts in the note column.
 
+## Plan
+
+`plan.py` holds the document map as JSON (`Plan.to_dict()`): files, then documents with boundaries, type, title, principal, date, references, revocations, treatment, and the confirm-screen edits (`excluded`, `amends`, `superseded`, `note`). It carries page labels but never page text. `validate_plan()` re-checks a plan sent back by a client; labels and chains are always recomputed from the boundaries.
+
 ## Confirm screen
 
 Shows files, then documents in file order. Each row: pages, type, date, treatment dropdown, note. Items needing a decision come first. A summary line counts documents by treatment.
@@ -124,6 +129,16 @@ On confirm: recompute page labels if boundaries moved, rebuild chains, run annot
 ## Workbook
 
 One workbook per matter: a sheet per annotated chain plus a "Packet map" sheet listing every document with pages, type, date, treatment, reason, and flags. A chain with no amendments hides the amendment and final-position columns. One template replaces the two current ones.
+
+As built (milestone 6):
+
+- One schema and one rules file (`annotation_schema.py`, `assets/annotation_rules.md`): the multi-document history form, where a chain with no amendments is n = 0 and `operative` is null (code copies `original`). The model is told the document family (trust, will, or other) and every instrument's tag and status. The rules say a will's residuary gift to a revocable trust is not a gift to the University.
+- The annotation tool is sent without `strict: true`, because the API rejects its grammar as too large (checked with `tools/probe_schemas.py`). Code validates instead: pydantic, `reconcile()` for the per-amendment entries, and the cited-page check.
+- Chains are annotated in parallel, with the facts lane beside them. A chain that fails is listed in the packet map with a safe reason; the others still make the workbook. If every chain fails, the request fails.
+- One template (`assets/MiLA_Annotation_Template.xlsx`, the amendments template). Sheet order: Instructions, Packet map, then one sheet per chain named from its base title (31 characters at most, unique, no characters Excel forbids). copy_worksheet loses validations, freeze panes and print titles, so they are re-applied to every sheet.
+- Status tallies count exactly the status cells of sections 1 to 5, so contact rows never reach them.
+- Section 10 of each chain sheet holds the facts lane's contact rows: sources and dates in the citation column, conflicts in the note column. With no chain sheets, they go on the packet map.
+- A chain with more than 8 amendments is refused with a clear message (the template has 8 amendment columns).
 
 ## API and hosting (Vercel)
 

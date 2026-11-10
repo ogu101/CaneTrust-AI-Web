@@ -17,9 +17,8 @@ os.environ["CANETRUST_DISABLE_DOTENV"] = "1"
 
 from pypdf import PdfReader, PdfWriter
 
-from extract import ExtractionError
 from page_labels import find_candidates, find_label_candidate, label_document
-from page_reader import PageRecord, read_pages
+from page_reader import ExtractionError, PageRecord, read_pages
 from page_source import load_pages, sidecar_path
 
 FIX = Path(__file__).parent / "fixtures"
@@ -326,8 +325,13 @@ with tempfile.TemporaryDirectory() as tmp:
     check(raises_kind(lambda: load_pages("s", "notlist.pdf", SCAN, sidecar_dir=sidecars), "invalid"),
           "a sidecar that is not a list of strings is refused")
 
+# Since milestone 6 the service reads pages through page_source.load_pages, but never with a
+# sidecar directory: only tests and dev tools may read sidecars.
 for runtime in ("api/index.py", "service.py"):
     source = (Path(__file__).parent / runtime).read_text(encoding="utf-8")
-    check("sidecar" not in source and "page_source" not in source, f"{runtime} never reads sidecars")
+    check("sidecar" not in source, f"{runtime} never reads sidecars")
+check("load_pages(file_id, name, upload.data, max_pages=settings.max_pages)"
+      in (Path(__file__).parent / "service.py").read_text(encoding="utf-8"),
+      "service.py gets pages only through page_source.load_pages, without a sidecar directory")
 
 print(f"\nALL {passed} CHECKS PASSED")

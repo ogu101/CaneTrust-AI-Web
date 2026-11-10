@@ -17,7 +17,6 @@ import os
 import socket
 import sys
 import threading
-import time
 import webbrowser
 
 os.environ.setdefault("ANTHROPIC_API_KEY", "fake-key-for-local-ui-testing")
@@ -25,29 +24,16 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "fake-key-for-local-ui-testing")
 import uvicorn
 
 import service
+import testkit
 from api.index import app
-from schema_multi import reconcile_with_packet
-from testkit import make_packet_annotation, tiny_single_annotation
 
 HOST = "127.0.0.1"
 PORT = int(os.getenv("PORT", "8000"))
 PAUSE_SECONDS = float(os.getenv("STUB_PAUSE_SECONDS", "1.5"))
 
-
-def fake_single(name, layers, **kwargs):
-    time.sleep(PAUSE_SECONDS)
-    return tiny_single_annotation()
-
-
-def fake_multi(packet, **kwargs):
-    time.sleep(PAUSE_SECONDS)
-    annotation = make_packet_annotation(n_terms=2, n_mentions=2)
-    reconcile_with_packet(annotation, packet.amendment_numbers)
-    return annotation
-
-
-service.analyze_document = fake_single
-service.analyze_packet = fake_multi
+# Every model call (triage, facts, annotation) is answered by testkit.StubModel: one document per
+# file, typed from its file name and dated from its first date; placeholder annotations.
+testkit.install_stub(service, testkit.StubModel(pause=PAUSE_SECONDS))
 
 
 def port_in_use(host: str, port: int) -> bool:

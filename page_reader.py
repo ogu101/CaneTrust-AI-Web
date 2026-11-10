@@ -8,12 +8,9 @@ page_labels.label_document(), after triage has found where each document starts 
 because printed numbering restarts in every document. A page's position in its file is kept
 for ordering and is never used as its label.
 
-Refusals match extract.py: unsupported type, empty, invalid, encrypted, too many pages, and
-scans (no text layer), each an ExtractionError with the same `kind`.
-
-TODO(milestone 6): the PDF opening and scan checks below repeat extract._extract_pdf. The
-duplication goes away when the old pipeline (extract.py and its [PDF page N of M] markers) is
-removed.
+Refusals: unsupported type, empty, invalid, encrypted, too many pages, and scans (no text
+layer), each an ExtractionError whose `kind` the web API maps to an HTTP status. OCR is not done
+here: a scan is refused with an explanation (docs/DESIGN.md, milestone 9).
 """
 
 import io
@@ -22,10 +19,54 @@ from typing import Literal
 
 from pypdf import PdfReader
 
-from extract import (
-    MIN_PAGE_CHARS, MIN_TEXT_PAGE_SHARE, SUPPORTED_SUFFIXES, ExtractionError, _decode_text, _suffix,
-)
 from page_labels import BARE_SLACK, find_label_candidate
+
+SUPPORTED_SUFFIXES = (".pdf", ".txt")
+
+# A page with fewer characters than this is treated as having no text layer. A real page of a
+# trust is hundreds of characters; a scan extracts as nothing, or a few stray characters.
+MIN_PAGE_CHARS = 40
+# A PDF is accepted if at least this share of its pages has text. Below it, it is a scan.
+MIN_TEXT_PAGE_SHARE = 0.5
+
+
+class ExtractionError(ValueError):
+    """A file we can't turn into pages. `kind` says why, so callers can choose a status code:
+    unsupported | empty | invalid | encrypted | too_long | no_text_layer."""
+
+    def __init__(self, message: str, *, kind: str = "invalid"):
+        super().__init__(message)
+        self.kind = kind
+
+
+def _suffix(filename: str) -> str:
+    name = filename.lower()
+    dot = name.rfind(".")
+    return name[dot:] if dot != -1 else ""
+
+
+def _decode_text(data: bytes) -> str:
+    for encoding in ("utf-8-sig", "cp1252"):
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("utf-8", errors="replace")
+
+
+def unreadable_sheets(pages: list["PageRecord"]) -> list[int]:
+    """Sheets with no usable text (possibly scanned images inside a text PDF)."""
+    return [p.position for p in pages if len(p.text) < MIN_PAGE_CHARS]
+
+
+def describe_unreadable(filename: str, sheets: list[int], limit: int = 8) -> str | None:
+    """A warning naming the sheets of a file that have no extractable text, or None."""
+    if not sheets:
+        return None
+    shown = ", ".join(str(n) for n in sheets[:limit])
+    more = f" and {len(sheets) - limit} more" if len(sheets) > limit else ""
+    return (f"{filename}: sheet(s) {shown}{more} have no extractable text (possibly scanned "
+            f"images). Anything on them could not be read.")
 
 LabelSource = Literal["printed", "inferred", "unnumbered"]
 

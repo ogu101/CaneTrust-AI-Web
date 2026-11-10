@@ -18,7 +18,7 @@ from typing import Literal, get_args
 
 from pydantic import Field, ValidationError, field_validator
 
-from schema import StrictModel
+from schema_limits import StrictModel
 
 DocType = Literal[
     "restated_trust", "trust", "amendment", "will", "codicil", "other_dispositive",

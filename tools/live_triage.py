@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from extract import ExtractionError  # noqa: E402
+from page_reader import ExtractionError  # noqa: E402
 from page_source import load_pages  # noqa: E402
 from settings import load_local_env, load_settings  # noqa: E402
 

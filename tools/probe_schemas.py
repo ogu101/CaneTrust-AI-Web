@@ -1,16 +1,17 @@
 """
-Ask the real API whether each strict tool schema is accepted (a paid call, but a tiny one).
+Ask the real API whether each tool schema is accepted (a paid call, but a tiny one).
 
     .venv/bin/python tools/probe_schemas.py [--only NAME ...]
 
-One minimal request per tool: the real tool definition (strict, as the pipeline sends it), the
+One minimal request per tool: the real tool definition (as the pipeline sends it), the
 model the pipeline uses, a one-line user message with no document text, max_tokens 64 and no
 thinking. A strict schema the API cannot compile is refused with a 400 before any output, so
 "accepted" means the schema compiled. Prints accepted or rejected, the HTTP status, the API's
 error message, our own optional/union parameter counts, and the token usage of every call.
 
 The model the pipeline uses is CANETRUST_MODEL / CANETRUST_TRIAGE_MODEL (settings.py). Exit
-status 1 if any schema is rejected.
+status 1 if any schema the pipeline actually sends is rejected (a rejected strict trial only
+reports that the tool must stay non-strict).
 """
 
 from __future__ import annotations
@@ -31,29 +32,17 @@ PROBE_MESSAGE = "Schema probe. No document is attached. Call the tool with place
 
 
 def probes(settings) -> list[tuple[str, str, dict]]:
-    """(name, model, tool definition) for every strict tool the pipeline sends."""
+    """(name, model, tool definition) for every tool the pipeline sends, exactly as sent, plus a
+    strict trial of any tool sent without strict (to see whether it could be made strict)."""
+    from annotate import tool_definition as annotation_tool
+    from facts import tool_definition as facts_tool
     from triage_schema import tool_definition as triage_tool
-    out = [("triage", settings.triage_model, triage_tool())]
-    try:
-        from annotate import tool_definition as annotation_tool
-        out.append(("annotation", settings.model, annotation_tool("trust")))
-    except ImportError:
-        pass
-    try:
-        from facts import tool_definition as facts_tool
-        out.append(("facts", settings.model, facts_tool()))
-    except ImportError:
-        pass
-    try:                                  # the old pipelines, until milestone 6 removes them
-        from schema import DocumentAnnotation
-        from schema_multi import PacketAnnotation
-        for name, model_cls in (("single-document", DocumentAnnotation),
-                                ("multi-document", PacketAnnotation)):
-            out.append((name, settings.model, {
-                "name": "analyze_documents", "description": "Record the extraction.",
-                "input_schema": model_cls.model_json_schema(), "strict": True}))
-    except ImportError:
-        pass
+    out = [("triage", settings.triage_model, triage_tool()),
+           ("facts", settings.triage_model, facts_tool()),
+           ("annotation", settings.model, annotation_tool())]
+    for name, model, tool in list(out):
+        if not tool.get("strict"):
+            out.append((f"{name} (strict trial)", model, {**tool, "strict": True}))
     return out
 
 
@@ -85,7 +74,7 @@ def main() -> int:
                 tool_choice={"type": "tool", "name": tool["name"]},
                 messages=[{"role": "user", "content": PROBE_MESSAGE}])
         except anthropic.APIStatusError as exc:
-            rejected += 1
+            rejected += 0 if name.endswith("(strict trial)") else 1
             totals["calls"] += 1
             message = getattr(exc, "body", None) or {}
             if isinstance(message, dict):
@@ -99,7 +88,7 @@ def main() -> int:
         print(f"   accepted  status 200, stop_reason {response.stop_reason}, "
               f"input {usage.input_tokens} tokens, output {usage.output_tokens} tokens")
     print(f"\n{totals['calls']} call(s); input {totals['input_tokens']} tokens, "
-          f"output {totals['output_tokens']} tokens; {rejected} rejected")
+          f"output {totals['output_tokens']} tokens; {rejected} rejected (strict trials not counted)")
     return 1 if rejected else 0
 
 

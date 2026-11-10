@@ -26,7 +26,7 @@ os.environ["CANETRUST_DISABLE_DOTENV"] = "1"
 
 from pypdf import PdfReader
 
-from extract import ExtractionError
+from page_reader import ExtractionError
 from page_labels import label_document
 from page_source import load_pages, sidecar_path
 

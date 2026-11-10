@@ -198,7 +198,7 @@ try {
   p.trust(pdf(TRUST));
   await p.submit();
   check(p.resultShown() && p.error() === null, "single: the workbook is delivered");
-  check(p.steps().some((s) => s.includes("single-document pipeline")), "single: progress shows the triage decision");
+  check(p.steps().some((s) => s.includes("Found 1 document(s)")), "single: progress shows what triage found");
   check(p.$("download").getAttribute("download") === "00_marlowe_trust_original_annotation.xlsx", "single: download name");
   check(p.downloads.length === 1 && p.downloads[0].name === "00_marlowe_trust_original_annotation.xlsx", "single: the download starts by itself");
   check(p.$("download").getAttribute("href").startsWith("blob:"), "single: the link points at the generated file");
@@ -212,8 +212,8 @@ try {
   for (const i of [3, 1, 0, 2]) p.addAmendment(pdf(AMENDMENTS[i][0]), AMENDMENTS[i][1], AMENDMENTS[i][2]);
   await p.submit();
   check(p.resultShown(), "multi: the workbook is delivered");
-  check(p.steps().some((s) => s.includes("4 amendment(s)") && s.includes("multi-document")), "multi: progress shows 4 amendments");
-  check(p.$("download").getAttribute("download") === "00_marlowe_trust_original_annotation_with_amendments.xlsx", "multi: download name");
+  check(p.steps().some((s) => s.includes("Found 5 document(s)")) && p.steps().some((s) => s.includes("1 chain(s)")), "multi: progress shows 5 documents in one chain");
+  check(p.$("download").getAttribute("download") === "00_marlowe_trust_original_annotation.xlsx", "multi: download name");
   check(p.errors.length === 0, `no script errors in the page (${p.errors.join("; ")})`);
 
   // ---------------------------------------------------------------- server-side errors
