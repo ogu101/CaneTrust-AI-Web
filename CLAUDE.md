@@ -25,7 +25,9 @@ below are the current code and are slated for removal; don't build new work on t
 .venv/bin/python test_web.py                           # extraction + HTTP API (FastAPI TestClient) (102 checks)
 .venv/bin/python test_pages.py                         # page reader + labeler + page source (96 checks)
 .venv/bin/python test_gay_fixtures.py                  # real-fixture expectations; text checks skip until OCR (140 checks)
-.venv/bin/python test_triage.py                        # triage with a stubbed model, invented pages (107 checks)
+.venv/bin/python test_triage.py                        # triage with a stubbed model, invented pages (113 checks)
+.venv/bin/python test_chains.py                        # chain building, table-driven (83 checks)
+.venv/bin/python tools/probe_schemas.py                # REAL (tiny, paid): is each strict tool schema accepted?
 .venv/bin/python tools/live_triage.py FILE... [--expected MAP]   # REAL (paid) triage; prints the map, never page text
 cd ui_test && npm install && node test_ui.mjs          # drives public/index.html in jsdom against a stub server (44 checks)
 ```
@@ -97,7 +99,10 @@ Cross-file coupling to be aware of:
   null, no maxItems/maxLength, so evidence limits are trimmed in code); prompt in `assets/triage_rules.md`.
   Forced `tool_choice` is used except for models that reject it (`NO_FORCED_TOOL_CHOICE`). Warnings,
   flags and retry problems carry ids, sheets, counts and enum values only, never page or model text.
-  `testkit.strict_schema_problems()` checks any tool schema against the strict-mode limits.
+  `schema_limits.strict_schema_problems()` (re-exported by testkit) checks any tool schema against the
+  strict-mode limits; only the real API (`tools/probe_schemas.py`) can say if a grammar is too large.
+- Milestone 4: `chains.build_chains(ChainDoc list)` is pure logic over `assets/chain_families.json`; see its
+  docstring for the ordering, restatement, revocation and gap rules. Triage records `revokes[]`.
 
 ### Web API (`api/index.py`)
 

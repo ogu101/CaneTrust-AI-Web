@@ -147,6 +147,7 @@ def answer_doc(d, first=None, last=None, **overrides):
         "doc_type": d["type"], "title": f"{MARKER} title", "principal": PRINCIPAL,
         "date": d["date"] or "unknown",
         "refers_to": [{"what": f"{MARKER} instrument", "date": r["date"]} for r in d.get("refers_to", [])],
+        "revokes": [],
         "appears_to_gift_to_university": "yes" if d["type"] == "restated_trust" else "no",
         "is_blank_form": d["id"] == "receipt_blank", "proposed_treatment": d["treatment"],
         "treatment_reason": f"{MARKER} reason", "confidence": "high", "evidence": [f"{MARKER} cue"],
@@ -589,6 +590,25 @@ check(kinds[:2] == ["boundary", "boundary"] and "field" in kinds and kinds == so
       and {r[1] for r in rows if r[0] == "boundary"} >= {"will", "codicil"},
       "boundary mismatches come first, then fields")
 SURFACES.extend(" ".join(r) for r in rows)
+
+# ---------------------------------------------------------------------------
+# 8b. revokes[]
+# ---------------------------------------------------------------------------
+check("revokes" in doc_schema["required"] and doc_schema["properties"]["revokes"]["type"] == "array",
+      "revokes is a required list in the strict schema")
+check("`revokes`" in SETTINGS.triage_rules.read_text(encoding="utf-8"), "the triage rules explain revokes")
+revoking = {"codicil": {"revokes": [{"what": f"{MARKER} earlier codicil", "date": "2022-01-15"},
+                                    {"what": f"{MARKER} undated codicil", "date": "unknown"}]}}
+result = run(StubClient(lambda r: truth_answer(r, overrides=revoking)))
+codicil = doc_by_range(result, PACKET_FILE, MAP_DOC["codicil"]["first"])
+check([r["date"] for r in codicil.revokes] == ["2022-01-15", None], "revokes come through with parsed dates")
+check(all(d.revokes == [] for d in result.documents if d.id != codicil.id), "other documents revoke nothing")
+check(codicil.to_dict()["revokes"][0]["date"] == "2022-01-15", "revokes are in to_dict")
+bad_revokes = {"codicil": {"revokes": [{"what": "x", "date": "2022-02-30"}]}}
+client = StubClient(lambda r: truth_answer(r, overrides=bad_revokes), truth_answer)
+result = run(client)
+check("a revokes date is not YYYY-MM-DD or 'unknown'" in problems_sent(client)[0] and result.retries_used == 1,
+      "an unparseable revokes date is a validation problem")
 
 # ---------------------------------------------------------------------------
 # 9. No document text anywhere it must not be

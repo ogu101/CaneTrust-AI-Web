@@ -1,0 +1,11 @@
+{
+  "_note": "Which document types form a chain, and the role each plays (docs/DESIGN.md, 'Chains'). 'base' is an original instrument, 'restatement' replaces everything before it, 'amendment' changes the base. A codicil amends a will the way an amendment amends a trust. Types not listed (other_dispositive, notices, accountings) are never chained. 'reference_words' says which words in a referenced instrument's description make it a missing amendment of this family.",
+  "trust": {
+    "roles": {"trust": "base", "restated_trust": "restatement", "amendment": "amendment"},
+    "reference_words": ["amendment"]
+  },
+  "will": {
+    "roles": {"will": "base", "codicil": "amendment"},
+    "reference_words": ["codicil"]
+  }
+}

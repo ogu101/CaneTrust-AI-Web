@@ -73,6 +73,7 @@ class TriagedDocument:
     principal: str
     date: date | None
     refers_to: list[dict]
+    revokes: list[dict]
     appears_to_gift_to_university: str
     is_blank_form: bool
     treatment: str
@@ -140,16 +141,17 @@ class _Claim:
     doc: TriageDocument
     date: date | None
     refers_to: list[dict]
+    revokes: list[dict] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)     # codes, attached once the id is known
 
 
 def _unassigned_claim(file_id: str, first: int, last: int) -> _Claim:
     doc = TriageDocument(
         file_id=file_id, first_sheet=first, last_sheet=last, doc_type="unknown", title="unknown",
-        principal="unknown", date="unknown", refers_to=[], appears_to_gift_to_university="unclear",
+        principal="unknown", date="unknown", refers_to=[], revokes=[], appears_to_gift_to_university="unclear",
         is_blank_form=False, proposed_treatment="log_only",
         treatment_reason="no document claimed these sheets", confidence="low", evidence=[])
-    return _Claim(file_id, first, last, doc, None, [], ["unassigned"])
+    return _Claim(file_id, first, last, doc, None, [], [], ["unassigned"])
 
 
 def _runs(sheets: list[int]) -> list[tuple[int, int]]:
@@ -187,6 +189,8 @@ def _validate(parsed, problems: list[str], shown: dict[str, tuple[int, int]]) ->
             problems.append(f"document {index}: date is not YYYY-MM-DD or 'unknown'")
         if any(not parse_date(r.date)[1] for r in doc.refers_to):
             problems.append(f"document {index}: a refers_to date is not YYYY-MM-DD or 'unknown'")
+        if any(not parse_date(r.date)[1] for r in doc.revokes):
+            problems.append(f"document {index}: a revokes date is not YYYY-MM-DD or 'unknown'")
         for s in range(max(lo, doc.first_sheet), min(hi, doc.last_sheet) + 1):
             claimed[doc.file_id][s] = claimed[doc.file_id].get(s, 0) + 1
     for file_id, (lo, hi) in shown.items():
@@ -200,15 +204,22 @@ def _validate(parsed, problems: list[str], shown: dict[str, tuple[int, int]]) ->
 
 def _to_claim(doc: TriageDocument, first: int, last: int, flags: list[str]) -> _Claim:
     day, ok = parse_date(doc.date)
-    refers, refers_ok = [], True
-    for r in doc.refers_to:
-        r_day, r_ok = parse_date(r.date)
-        refers_ok &= r_ok
-        refers.append({"what": r.what, "date": r_day.isoformat() if r_day else None})
+    refers_ok = True
+
+    def references(items):
+        nonlocal refers_ok
+        out = []
+        for r in items:
+            r_day, r_ok = parse_date(r.date)
+            refers_ok &= r_ok
+            out.append({"what": r.what, "date": r_day.isoformat() if r_day else None})
+        return out
+
+    refers, revokes = references(doc.refers_to), references(doc.revokes)
     flags = list(flags)
     if not ok or not refers_ok:
         flags.append("date_unreadable")
-    return _Claim(doc.file_id, first, last, doc, day, refers, flags)
+    return _Claim(doc.file_id, first, last, doc, day, refers, revokes, flags)
 
 
 def _repair(parsed, shown: dict[str, tuple[int, int]]) -> list[_Claim]:
@@ -455,7 +466,7 @@ def triage(pages_by_file: dict[str, list[PageRecord]], settings: Settings, clien
         documents.append(TriagedDocument(
             id=doc_id, file_id=c.file_id, first_sheet=c.first, last_sheet=c.last,
             doc_type=c.doc.doc_type, title=c.doc.title, principal=c.doc.principal, date=c.date,
-            refers_to=c.refers_to, appears_to_gift_to_university=c.doc.appears_to_gift_to_university,
+            refers_to=c.refers_to, revokes=c.revokes, appears_to_gift_to_university=c.doc.appears_to_gift_to_university,
             is_blank_form=c.doc.is_blank_form, treatment=default, treatment_reason=reason,
             confidence=c.doc.confidence, evidence=clean_evidence(c.doc.evidence),
             model_suggested_treatment=c.doc.proposed_treatment if overridden else None,

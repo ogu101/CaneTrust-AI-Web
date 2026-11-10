@@ -38,6 +38,27 @@ phases 1-5.
 - D0.2: the gay PDFs are committed (they are cleared fixtures and the plan names them in commit
   b). The repo's visibility could not be checked (no `gh` CLI); check it before pushing.
 
+## Phase 1: chains (done)
+
+- triage: `revokes[]` (what, date) in the strict schema, the rules, validation (unparseable date
+  is a retry problem) and `TriagedDocument.revokes`. Triage tests 107 -> 113.
+- `assets/chain_families.json`, `chains.py` (`ChainDoc`, `build_chains`, `from_triaged`),
+  `test_chains.py` (83 checks, 22 table cases plus expected_map's chains).
+- Suites: multi 55, web 102, pages 96, gay 140 (+9 skipped), triage 113, chains 83, UI 44.
+
+### Decisions
+
+- D1.1: annotated documents that cannot be chained (no date, other_dispositive) are returned as
+  `standalone` and will be annotated on their own sheet, flagged; nothing is silently dropped.
+- D1.2: two originals in one group: the latest is the base and the earlier is superseded, flagged
+  `multiple_bases` (wills customarily revoke earlier wills; for trusts a person must confirm).
+- D1.3: an unknown principal forms its own group, flagged `principal_unknown`.
+- D1.4: an override `amends` with no date is placed last in its target's chain, flagged
+  `order_assumed`; an override to an unchained target is ignored, flagged.
+- D1.5: revocations are matched by date within the chain; an unmatched one is flagged.
+- D1.6: flags carry ids and counts; gap and superseded-reference descriptions and dates are kept
+  in the chain for the workbook only.
+
 ## Next
 
-Phase 1: chains (`revokes[]` in triage, assets/chain_families.json, chains.py, test_chains.py).
+Phase 2: facts lane (facts.py, stubbed tests reproducing expected_facts.json).

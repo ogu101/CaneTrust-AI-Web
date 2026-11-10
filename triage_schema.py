@@ -62,6 +62,9 @@ class TriageDocument(StrictModel):
         "The document's own execution, signing or issue date, or the date a notice states for its "
         "own publication or filing, as YYYY-MM-DD. 'unknown' if absent or only partly legible."))
     refers_to: list[Reference] = Field(description="Instruments this document refers to (amends, restates, revokes, administers).")
+    revokes: list[Reference] = Field(description=(
+        "Instruments this document expressly revokes in their entirety (also list them in "
+        "refers_to). Empty if none. A restatement replacing an earlier trust is not a revocation."))
     appears_to_gift_to_university: YesNoUnclear = Field(description=(
         "Whether this document itself makes a gift to the University of Miami. Being addressed "
         "or sent to the University is not a gift."))

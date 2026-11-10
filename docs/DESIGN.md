@@ -76,7 +76,7 @@ Output per document:
 
 ```
 Document: id, file_id, first_page, last_page, type, title, date,
-          refers_to[], gift_to_university (yes | no | unclear),
+          refers_to[], revokes[], gift_to_university (yes | no | unclear),
           treatment, treatment_reason, confidence, evidence[]
 ```
 
@@ -101,6 +101,11 @@ The table is editable configuration. Any non-annotated document that appears to 
 - A codicil amends a will the way an amendment amends a trust. Same machinery.
 - A referenced instrument that is not provided is a gap only if it came after the last restatement.
 - Several chains per matter are normal (for example a trust chain and a will chain).
+- Built by `chains.build_chains()` (pure logic) from `assets/chain_families.json`. Only annotated, non-excluded documents are chained; groups are family plus normalized principal; a user override "amends" wins.
+- A document with no date is flagged and not chained. Annotated documents that cannot be chained (no date, `other_dispositive`) are annotated on their own as single-instrument sheets, flagged.
+- Same-date documents keep file order and are flagged. With two originals, the latest is the base (flagged).
+- Triage records `revokes[]` (what, date). A revoked instrument stays in the chain marked revoked. If a revoked instrument is a restatement, what it superseded becomes active again, flagged `revival_assumed`: an assumption for a person to confirm, not a ruling.
+- A referenced amendment or codicil is a gap only if its date is known, it is after the base restatement (or there is none), and no provided document of that family has that date. References without a usable date are flagged, never gaps.
 
 ## Facts lane
 
