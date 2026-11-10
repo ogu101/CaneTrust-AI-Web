@@ -59,6 +59,25 @@ phases 1-5.
 - D1.6: flags carry ids and counts; gap and superseded-reference descriptions and dates are kept
   in the chain for the workbook only.
 
+## Phase 2: facts lane (done)
+
+- `facts.py`: `FactItem` / `FactsAnswer` strict schema (`record_facts`), `build_message`,
+  `extract_facts`, `merge_facts`, `contact_rows`. Settings `CANETRUST_FACTS_MAX_TOKENS` (8000)
+  and `CANETRUST_FACTS_MAX_CHARS` (150000).
+- `test_facts.py` (40 checks): reproduces expected_facts.json from a stub answer, including the
+  address conflict (accounting wins, both shown) and no personal phone or e-mail for the
+  representative.
+
+### Decisions
+
+- D2.1: the facts call uses the triage model and triage effort (small, cheap call); it is not
+  retried. An invalid item is dropped with a warning; no tool call means no facts and a warning.
+- D2.2: log_only documents still contribute contact pages (the accounting is a fact source).
+- D2.3: successor trustees are two fields (`successor_trustee`, `backup_successor_trustee`) so a
+  first and a backup trustee are not mistaken for a conflict.
+- D2.4: contacts are tied to a person through `subject`, compared like principals; contacts of
+  nobody named go to an "Other contacts" row.
+
 ## Next
 
-Phase 2: facts lane (facts.py, stubbed tests reproducing expected_facts.json).
+Phase 3: one annotation path and one workbook; retire the old pipelines.

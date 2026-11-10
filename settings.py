@@ -26,6 +26,8 @@ Environment variables
     CANETRUST_TRIAGE_PREVIEW_CHARS  default 1500 characters per page preview
     CANETRUST_TRIAGE_WINDOW_PAGES   default 250 sheets per triage call
     CANETRUST_TRIAGE_WINDOW_OVERLAP default 10 sheets shared by neighbouring windows
+    CANETRUST_FACTS_MAX_TOKENS    default 8000 (the facts call uses the triage model and effort)
+    CANETRUST_FACTS_MAX_CHARS     default 150000 characters of page text sent to the facts call
     CANETRUST_DEBUG_DIR           if set, the model's raw JSON is written there
     CANETRUST_DISABLE_DOTENV      1 = never read .env (the tests set this so a local key is not used)
 """
@@ -65,6 +67,8 @@ class Settings:
     triage_window_overlap: int
     triage_rules: Path
     default_treatments: Path
+    facts_max_tokens: int
+    facts_max_chars: int
 
 
 def load_local_env() -> None:
@@ -128,6 +132,8 @@ def load_settings() -> Settings:
         triage_window_overlap=overlap,
         triage_rules=ASSETS / "triage_rules.md",
         default_treatments=ASSETS / "default_treatments.json",
+        facts_max_tokens=_int("CANETRUST_FACTS_MAX_TOKENS", 8000),
+        facts_max_chars=_int("CANETRUST_FACTS_MAX_CHARS", 150_000),
     )
 
 

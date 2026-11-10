@@ -111,6 +111,8 @@ The table is editable configuration. Any non-annotated document that appears to 
 
 Fields: personal representative and trustee names and contact details, dates of death, case numbers, attorney contacts. Any document may supply them. Each fact keeps its source document and date. The newest source wins and conflicts are shown, not hidden. Facts never feed the bequest, income, or restriction fields.
 
+Built as `facts.py`: one small strict `record_facts` call on the triage model. It sees facts_only documents in full and, from every other non-excluded document (including log_only ones such as an accounting), only pages with contact cues (phone, e-mail, ZIP code, "successor trustee", "personal representative", "attorney for", "date of death", "case no."), at most 8 per document. The model names the source document and page label; code takes the source date from triage. A source with no date counts as oldest; a same-date tie goes to the later document. Facts appear in the workbook as contact rows with sources and dates in the citation column and conflicts in the note column.
+
 ## Confirm screen
 
 Shows files, then documents in file order. Each row: pages, type, date, treatment dropdown, note. Items needing a decision come first. A summary line counts documents by treatment.

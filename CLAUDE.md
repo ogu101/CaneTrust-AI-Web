@@ -27,6 +27,7 @@ below are the current code and are slated for removal; don't build new work on t
 .venv/bin/python test_gay_fixtures.py                  # real-fixture expectations; text checks skip until OCR (140 checks)
 .venv/bin/python test_triage.py                        # triage with a stubbed model, invented pages (113 checks)
 .venv/bin/python test_chains.py                        # chain building, table-driven (83 checks)
+.venv/bin/python test_facts.py                         # facts lane with a stubbed model; reproduces expected_facts.json (40 checks)
 .venv/bin/python tools/probe_schemas.py                # REAL (tiny, paid): is each strict tool schema accepted?
 .venv/bin/python tools/live_triage.py FILE... [--expected MAP]   # REAL (paid) triage; prints the map, never page text
 cd ui_test && npm install && node test_ui.mjs          # drives public/index.html in jsdom against a stub server (44 checks)
@@ -103,6 +104,9 @@ Cross-file coupling to be aware of:
   strict-mode limits; only the real API (`tools/probe_schemas.py`) can say if a grammar is too large.
 - Milestone 4: `chains.build_chains(ChainDoc list)` is pure logic over `assets/chain_families.json`; see its
   docstring for the ordering, restatement, revocation and gap rules. Triage records `revokes[]`.
+- Milestone 5: `facts.extract_facts()` is one strict `record_facts` call (triage model and effort) over
+  facts_only documents in full plus contact-cue pages of the others; code fills source dates from triage and
+  `merge_facts()` keeps conflicts (newest wins). Facts only ever become contact rows (`contact_rows()`).
 
 ### Web API (`api/index.py`)
 
